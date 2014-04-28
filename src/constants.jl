@@ -1,0 +1,9 @@
+const KCOREADER = convert(Uint, 1 << 0)   # open as a reader
+const KCOWRITER = convert(Uint, 1 << 1)   # open as a writer
+const KCOCREATE = convert(Uint, 1 << 2)   # writer creating
+const KCOTRUNCATE = convert(Uint, 1 << 3) # writer truncating
+const KCOAUTOTRAN = convert(Uint, 1 << 4) # auto transaction
+const KCOAUTOSYNC = convert(Uint, 1 << 5) # auto synchronization
+const KCONOLOCK = convert(Uint, 1 << 6)   # open without locking
+const KCOTRYLOCK = convert(Uint, 1 << 7)  # lock without blocking
+const KCONOREPAIR = convert(Uint, 1 << 8) # open without auto repair
