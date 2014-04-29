@@ -42,7 +42,6 @@ end
 
 # Iterate through values
 function test_iterate()
-  @assert 1==0
 end
 
 # File creation failures.
@@ -52,8 +51,22 @@ end
 # Get/Set failures
 # - Read non existing keys
 # - Set value when opened in R/O mode
+function test_get_set_failures()
+  db = Db()
+  open(db, "t.kch", KCOWRITER | KCOCREATE)
+
+  set(db, "a", "1")
+  set(db, "b", "2")
+  set(db, "c", "3")
+
+  @test_throws get(db, "z")
+
+  close(db)
+end
 
 test_open()
 test_get_set()
 test_cursor()
 test_iterate()
+
+test_get_set_failures()
