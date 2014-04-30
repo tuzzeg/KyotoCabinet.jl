@@ -11,10 +11,6 @@ next(iter, state) :: item, state
 isempty(collection) :: Bool
 length(collection) :: Integer
 
--- Indexable collection
-getindex(collection, key...) ::
-setindex!(collection, value, key...)
-
 -- Associative
 
 -- Dict interface
