@@ -2,6 +2,25 @@ module c
 
 const LIB = "libkyotocabinet"
 
+export
+  # Types
+  KCDBPtr, KCCURPtr, CString,
+
+  # Error codes
+  KCESUCCESS, KCENOIMPL, KCEINVALID, KCENOREPOS, KCENOPERM, KCEBROKEN, KCEDUPREC, KCENOREC, KCELOGIC, KCESYSTEM, KCEMISC,
+
+  # Open modes
+  KCOREADER, KCOWRITER, KCOCREATE, KCOTRUNCATE, KCOAUTOTRAN, KCOAUTOSYNC, KCONOLOCK, KCOTRYLOCK, KCONOREPAIR,
+
+  # General functions
+  kcfree,
+
+  # DB functions
+  kcdbnew, kcdbdel, kcdbopen, kcdbclose, kcdbecode, kcdbemsg, kcdbset, kcdbget, kcdbcursor,
+
+  # Cursor functions
+  kccurdel, kccurjump, kccurstep, kccurget, kccurecode, kccuremsg
+
 # C API types
 typealias KCDBPtr Ptr{Void}
 typealias KCCURPtr Ptr{Void}
@@ -32,23 +51,24 @@ const KCOTRYLOCK  = convert(Uint, 1 << 7) # lock without blocking
 const KCONOREPAIR = convert(Uint, 1 << 8) # open without auto repair
 
 # Release a region allocated in the library.
-kcfree(ptr::Ptr{Void}) = ccall((:kcfree, LIB), Void, (Ptr{Void},))
-kcfree(ptr::CString) = ccall((:kcfree, LIB), Void, (CString,))
+kcfree(ptr) = ccall((:kcfree, LIB), Void, (Ptr{Void},), ptr)
 
 # Create a polymorphic database object.
 kcdbnew() = ccall((:kcdbnew, LIB), KCDBPtr, ())
 
 # Destroy a database object.
-kcdbdel(db::KCDBPtr) = ccall((:kcdbdel, LIB), Void, (KCDBPtr,), db)
+function kcdbdel(db::KCDBPtr)
+  ccall((:kcdbdel, LIB), Void, (KCDBPtr,), db)
+end
 
 # Open a database file.
-function kcdbopen(db::KCDBPtr, path::CString, mode::Cuint)
+function kcdbopen(db::KCDBPtr, path, mode)
   ccall((:kcdbopen, LIB), Cint, (KCDBPtr, CString, Cuint), db, path, mode)
 end
 
 # Close the database file.
 function kcdbclose(db::KCDBPtr)
-  ccall((:kcdbclose, LIB), Cint, (KCDBPtr,), db.ptr)
+  ccall((:kcdbclose, LIB), Cint, (KCDBPtr,), db)
 end
 
 # Get the code of the last happened error.
@@ -58,46 +78,46 @@ end
 
 # Get the supplement message of the last happened error.
 function kcdbemsg(db::KCDBPtr)
-  ccall((:kcdbemsg, LIB), Cint, (KCDBPtr,), db)
+  ccall((:kcdbemsg, LIB), CString, (KCDBPtr,), db)
 end
 
 # Set the value of a record.
-function kcdbset(db::KCDBPtr, kbuf::CString, ksize::Cuint, vbuf::CString, vsize::Cuint)
+function kcdbset(db::KCDBPtr, kbuf, ksize, vbuf, vsize)
   ccall((:kcdbset, LIB), Cint, (KCDBPtr, CString, Cuint, CString, Cuint),
     db, kbuf, ksize, vbuf, vsize)
 end
 
 # Retrieve the value of a record.
-function kcdbget(db::KCDBPtr, kbuf::CString, ksize::Cuint, vsize::Ptr{Cuint})
-  ccall((:kcdbset, LIB), CString, (KCDBPtr, CString, Cuint, Ptr{Cuint}),
+function kcdbget(db::KCDBPtr, kbuf, ksize, vsize)
+  ccall((:kcdbget, LIB), CString, (KCDBPtr, CString, Cuint, Ptr{Cuint}),
     db, kbuf, ksize, vsize)
 end
 
 # Create a polymorphic cursor object.
 function kcdbcursor(db::KCDBPtr)
-  ccall((:kcdbcursor, LIB), KCCURPtr, (KCDBPtr,), db.ptr)
+  ccall((:kcdbcursor, LIB), KCCURPtr, (KCDBPtr,), db)
 end
 
 # Destroy a cursor object.
 function kccurdel(cursor::KCCURPtr)
-  ccall((:kccurdel, lib), Void, (KCCursorPtr,), cursor)
+  ccall((:kccurdel, LIB), Void, (KCCURPtr,), cursor)
 end
 
 # Get a pair of the key and the value of the current record.
-function kccurget(cursor::KCCURPtr, ksize::Ptr{Cuint}, v::Ptr{CString}, vsize::Ptr{Cuint}, step::Cint)
-  ccall(c_kccurget, CString,
+function kccurget(cursor::KCCURPtr, ksize, v, vsize, step)
+  ccall((:kccurget, LIB), CString,
     (KCCURPtr, Ptr{Cuint}, Ptr{CString}, Ptr{Cuint}, Cint),
     cursor, ksize, v, vsize, step)
 end
 
 # Jump the cursor to the first record for forward scan.
 function kccurjump(cursor::KCCURPtr)
-  ccall((:kccurjump, LIB), Int32, (KCCursorPtr,), cursor)
+  ccall((:kccurjump, LIB), Cint, (KCCURPtr,), cursor)
 end
 
 # Step the cursor to the next record.
 function kccurstep(cursor::KCCURPtr)
-  ccall((:kccurstep, LIB), Cuint, (KCCursorPtr,), cursor)
+  ccall((:kccurstep, LIB), Cint, (KCCURPtr,), cursor)
 end
 
 # Get the code of the last happened error.
@@ -107,7 +127,7 @@ end
 
 # Get the supplement message of the last happened error.
 function kccuremsg(cursor::KCCURPtr)
-  ccall((:kccuremsg, LIB), Cint, (KCCURPtr,), cursor)
+  ccall((:kccuremsg, LIB), CString, (KCCURPtr,), cursor)
 end
 
 end # module c

@@ -1,6 +1,8 @@
 using kyotocabinet
 using Base.Test
 
+using kyotocabinet.c
+
 # Open KC file.
 # Expected: file created
 function test_open()
@@ -24,20 +26,6 @@ function test_cursor_empty()
   end
 end
 
-function test_cursor()
-  test_with(abc_db) do db
-    cur = Cursor(db)
-    @assert _jump(cur)
-    @assert ("a", "1") == _current_record(cur)
-    @assert _next(cur)
-    @assert ("b", "2") == _current_record(cur)
-    @assert _next(cur)
-    @assert ("c", "3") == _current_record(cur)
-    @assert !_next(cur)
-    @test_throws _current_record(cur)
-  end
-end
-
 # Iterate through values
 function test_iterate_empty()
   test_with(empty_db) do db
@@ -47,6 +35,7 @@ function test_iterate_empty()
       log = log * " $k:$v"
     end
     @assert "" == log
+    close(cur)
   end
 end
 
@@ -101,7 +90,6 @@ end
 
 test_open()
 test_get_set()
-test_cursor()
 test_iterate_empty()
 test_iterate()
 
