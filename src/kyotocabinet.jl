@@ -3,7 +3,7 @@ module kyotocabinet
 include("c.jl")
 
 import Base: length, start, next, done
-import Base: haskey
+import Base: haskey, get, get!
 
 using .c
 
@@ -146,6 +146,27 @@ function get(f::Function, db::Db, k::String)
     end
   end
   bytestring(v, vSize[1])
+end
+
+get!(db::Db, k::String, default::String) = get!(()->default, db, k)
+
+function get!(f::Function, db::Db, k::String)
+  kb = bytestring(k)
+  vSize = Cuint[1]
+  pv = kcdbget(db.ptr, kb, length(kb), vSize)
+  if (pv == C_NULL)
+    code = kcdbecode(db.ptr)
+    if (code == KCENOREC)
+      v = f()
+      set(db, k, v)
+    else
+      message = bytestring(kcdbemsg(db.ptr))
+      throw(KyotoCabinetException(code, message))
+    end
+  else
+    v = bytestring(pv, vSize[1])
+  end
+  v
 end
 
 function haskey(db::Db, k::String)
