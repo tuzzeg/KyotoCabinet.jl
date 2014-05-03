@@ -16,10 +16,10 @@ export
   kcfree,
 
   # DB functions
-  kcdbnew, kcdbdel, kcdbopen, kcdbclose, kcdbecode, kcdbemsg, kcdbset, kcdbget, kcdbcursor,
+  kcdbnew, kcdbdel, kcdbopen, kcdbclose, kcdbecode, kcdbemsg, kcdbset, kcdbget, kcdbcursor, kcdbcount,
 
   # Cursor functions
-  kccurdel, kccurjump, kccurstep, kccurget, kccurecode, kccuremsg
+  kccurdel, kccurjump, kccurstep, kccurget, kccurecode, kccuremsg, kccurdb
 
 # C API types
 typealias KCDBPtr Ptr{Void}
@@ -93,6 +93,11 @@ function kcdbget(db::KCDBPtr, kbuf, ksize, vsize)
     db, kbuf, ksize, vsize)
 end
 
+# Get the number of records.
+function kcdbcount(db::KCDBPtr)
+  ccall((:kcdbcount, LIB), Clonglong, (KCDBPtr,), db)
+end
+
 # Create a polymorphic cursor object.
 function kcdbcursor(db::KCDBPtr)
   ccall((:kcdbcursor, LIB), KCCURPtr, (KCDBPtr,), db)
@@ -118,6 +123,11 @@ end
 # Step the cursor to the next record.
 function kccurstep(cursor::KCCURPtr)
   ccall((:kccurstep, LIB), Cint, (KCCURPtr,), cursor)
+end
+
+# Get the database object.
+function kccurdb(cursor::KCCURPtr)
+  ccall((:kccurdb, LIB), KCDBPtr, (KCCURPtr,), cursor)
 end
 
 # Get the code of the last happened error.

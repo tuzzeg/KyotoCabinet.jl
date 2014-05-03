@@ -19,6 +19,16 @@ function test_get_set()
   end
 end
 
+# Length
+function test_length()
+  test_with(empty_db) do db
+    @assert 0 == length(db)
+  end
+  test_with(abc_db) do db
+    @assert 3 == length(db)
+  end
+end
+
 function test_cursor_empty()
   test_with(abc_db) do db
     cur = Cursor(db)
@@ -97,8 +107,12 @@ function test_iterate_nexts_throws()
 end
 
 function test_generator()
-  # log = join(["$k:$v" for (k, v) = cur], " ")
-  # @assert "a:1 b:2 c:3" == log
+  test_with(abc_db) do db
+    cur = Cursor(db)
+    log = join(["$k:$v" for (k, v) = cur], " ")
+    @assert "a:1 b:2 c:3" == log
+    close(cur)
+  end
 end
 
 # File creation failures.
@@ -135,10 +149,12 @@ function test_with(check::Function, configure::Function)
 end
 
 test_open()
+test_length()
 test_get_set()
 test_iterate_empty()
 test_iterate()
 test_iterate_nexts_empty()
 test_iterate_nexts()
 test_iterate_nexts_throws()
+test_generator()
 test_get_set_failures()

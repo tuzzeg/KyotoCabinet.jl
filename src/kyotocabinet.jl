@@ -40,6 +40,25 @@ type KyotoCabinetException <: Exception
   message :: String
 end
 
+# Base functions
+function Base.length(db::Db)
+  count = kcdbcount(db.ptr)
+  if (count == -1) throw(kcexception(db)) end
+  count
+end
+
+# TODO Support length() for generator over cursor. Does it make sense?
+function Base.length(cur::Cursor)
+  db_ptr = kccurdb(cur.ptr)
+  if (db_ptr == C_NULL) throw(kcexception(cur)) end
+  count = kcdbcount(db_ptr)
+  if (count == -1)
+    code = kcdbecode(db_ptr)
+    message = bytestring(kcdbemsg(db_ptr))
+    throw(KyotoCabinetException(code, message))
+  end
+  count
+end
 
 # Iterable interface
 function Base.start(cur::Cursor)
