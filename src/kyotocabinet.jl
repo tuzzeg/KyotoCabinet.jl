@@ -48,9 +48,7 @@ function Base.start(cur::Cursor)
 end
 
 function Base.next(cur::Cursor, st::Uint)
-  if st == cur.row - 1
-    kv = _get(cur)
-  elseif st == cur.row
+  if st == cur.row
     kv = _get(cur)
     cur.done = !_next!(cur)
     cur.row += 1

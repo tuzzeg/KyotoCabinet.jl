@@ -1,6 +1,6 @@
-using kyotocabinet
 using Base.Test
 
+using kyotocabinet
 using kyotocabinet.c
 
 # Open KC file.
@@ -47,6 +47,52 @@ function test_iterate()
       log = log * " $k:$v"
     end
     @assert " a:1 b:2 c:3" == log
+    close(cur)
+  end
+end
+
+function test_iterate_nexts_empty()
+  test_with(empty_db) do db
+    cur = Cursor(db)
+    s0 = start(cur)
+    @assert done(cur, s0)
+    @test_throws next(cur, s0)
+    close(cur)
+  end
+end
+
+function test_iterate_nexts()
+  test_with(abc_db) do db
+    cur = Cursor(db)
+    s0 = start(cur)
+    @assert !done(cur, s0)
+    (kv0, s1) = next(cur, s0)
+    (kv1, s2) = next(cur, s1)
+    (kv2, s3) = next(cur, s2)
+    @assert done(cur, s3)
+
+    @assert ("a", "1") == kv0
+    @assert ("b", "2") == kv1
+    @assert ("c", "3") == kv2
+
+    close(cur)
+  end
+end
+
+function test_iterate_nexts_throws()
+  test_with(abc_db) do db
+    cur = Cursor(db)
+    s0 = start(cur)
+    @assert !done(cur, s0)
+    (kv0, s1) = next(cur, s0)
+    @test_throws next(cur, s0)
+    (kv1, s2) = next(cur, s1)
+    @test_throws next(cur, s0)
+    (kv2, s3) = next(cur, s2)
+    @test_throws next(cur, s0)
+    @assert done(cur, s3)
+
+    close(cur)
   end
 end
 
@@ -92,5 +138,7 @@ test_open()
 test_get_set()
 test_iterate_empty()
 test_iterate()
-
+test_iterate_nexts_empty()
+test_iterate_nexts()
+test_iterate_nexts_throws()
 test_get_set_failures()
