@@ -166,6 +166,17 @@ function test_dict_get!()
   end
 end
 
+function test_associative()
+  test_with(abc_db) do db
+    @assert "1" == db["a"]
+    @assert "2" == db["b"]
+    @test_throws db["z"]
+
+    @test "0" == (db["z"] = "0")
+    @assert "0" == db["z"]
+  end
+end
+
 function empty_db(db::Db)
 end
 
@@ -199,3 +210,4 @@ test_get_set_failures()
 test_dict_haskey()
 test_dict_get()
 test_dict_get!()
+test_associative()

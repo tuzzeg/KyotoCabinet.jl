@@ -3,7 +3,7 @@ module kyotocabinet
 include("c.jl")
 
 import Base: length, start, next, done
-import Base: haskey, get, get!
+import Base: haskey, get, get!, getindex, setindex!
 
 using .c
 
@@ -105,7 +105,7 @@ function set(db::Db, k::String, v::String)
   vb = bytestring(v)
   ok = kcdbset(db.ptr, kb, length(kb), vb, length(vb))
   if (ok == 0) throw(kcexception(db)) end
-  return
+  v
 end
 
 function get(db::Db, k::String)
@@ -168,6 +168,10 @@ function get!(f::Function, db::Db, k::String)
   end
   v
 end
+
+# Indexable collection
+getindex(db::Db, k::String) = get(db, k)
+setindex!(db::Db, v::String, k::String) = set(db, k, v)
 
 function haskey(db::Db, k::String)
   kb = bytestring(k)

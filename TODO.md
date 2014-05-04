@@ -13,6 +13,10 @@ length(collection) :: Integer
 
 -- Associative
 
+-- Indexed collection
+getindex(t, k)
+setindex!(t, v, k)
+
 -- Dict interface
 haskey(collection, key)
 get(collection, key, default)
