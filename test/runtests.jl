@@ -138,6 +138,14 @@ function test_dict_haskey()
   end
 end
 
+function test_dict_get()
+  test_with(abc_db) do db
+    @assert "1" == get(db, "a", "0")
+    @assert "2" == get(db, "b", "0")
+    @assert "0" == get(db, "z", "0")
+  end
+end
+
 function empty_db(db::Db)
 end
 
@@ -169,3 +177,4 @@ test_iterate_nexts_throws()
 test_generator()
 test_get_set_failures()
 test_dict_haskey()
+test_dict_get()
