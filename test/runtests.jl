@@ -128,6 +128,16 @@ function test_get_set_failures()
   end
 end
 
+function test_dict_haskey()
+  test_with(abc_db) do db
+    @assert !haskey(db, "")
+
+    @assert haskey(db, "a")
+    @assert haskey(db, "b")
+    @assert !haskey(db, "z")
+  end
+end
+
 function empty_db(db::Db)
 end
 
@@ -158,3 +168,4 @@ test_iterate_nexts()
 test_iterate_nexts_throws()
 test_generator()
 test_get_set_failures()
+test_dict_haskey()

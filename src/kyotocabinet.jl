@@ -3,6 +3,7 @@ module kyotocabinet
 include("c.jl")
 
 import Base: length, start, next, done
+import Base: haskey
 
 using .c
 
@@ -113,6 +114,22 @@ function get(db::Db, k::String)
   v = kcdbget(db.ptr, kb, length(kb), vSize)
   if (v == C_NULL) throw(kcexception(db)) end
   bytestring(v, vSize[1])
+end
+
+function haskey(db::Db, k::String)
+  kb = bytestring(k)
+  v = kcdbcheck(db.ptr, kb, length(kb))
+  if (0 <= v)
+    return true
+  else
+    code = kcdbecode(db.ptr)
+    if (code == KCENOREC)
+      return false
+    else
+      message = bytestring(kcdbemsg(db.ptr))
+      throw(KyotoCabinetException(code, message))
+    end
+  end
 end
 
 # Jump to the first record. Return false if there is no first record.

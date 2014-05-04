@@ -16,7 +16,7 @@ export
   kcfree,
 
   # DB functions
-  kcdbnew, kcdbdel, kcdbopen, kcdbclose, kcdbecode, kcdbemsg, kcdbset, kcdbget, kcdbcursor, kcdbcount,
+  kcdbnew, kcdbdel, kcdbopen, kcdbclose, kcdbecode, kcdbemsg, kcdbset, kcdbget, kcdbcursor, kcdbcount, kcdbcheck,
 
   # Cursor functions
   kccurdel, kccurjump, kccurstep, kccurget, kccurecode, kccuremsg, kccurdb
@@ -91,6 +91,12 @@ end
 function kcdbget(db::KCDBPtr, kbuf, ksize, vsize)
   ccall((:kcdbget, LIB), CString, (KCDBPtr, CString, Cuint, Ptr{Cuint}),
     db, kbuf, ksize, vsize)
+end
+
+# Check the existence of a record.
+function kcdbcheck(db::KCDBPtr, kbuf, ksize)
+  ccall((:kcdbcheck, LIB), Cint, (KCDBPtr, CString, Csize_t),
+    db, kbuf, ksize)
 end
 
 # Get the number of records.
