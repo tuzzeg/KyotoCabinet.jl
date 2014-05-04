@@ -117,56 +117,32 @@ function get(db::Db, k::String)
 end
 
 function get(db::Db, k::String, default::String)
-  kb = bytestring(k)
-  vSize = Cuint[1]
-  v = kcdbget(db.ptr, kb, length(kb), vSize)
-  if (v == C_NULL)
-    code = kcdbecode(db.ptr)
-    if (code == KCENOREC)
-      return default
-    else
-      message = bytestring(kcdbemsg(db.ptr))
-      throw(KyotoCabinetException(code, message))
-    end
+  kbuf = bytestring(k)
+  vsize = Csize_t[1]
+  pv, code = throw_if(db, C_NULL, KCENOREC) do
+    kcdbget(db.ptr, kbuf, length(kbuf), pointer(vsize))
   end
-  bytestring(v, vSize[1])
+  code == KCENOREC ? default : bytestring(pv, vsize[1])
 end
 
-function get(f::Function, db::Db, k::String)
-  kb = bytestring(k)
-  vSize = Cuint[1]
-  v = kcdbget(db.ptr, kb, length(kb), vSize)
-  if (v == C_NULL)
-    code = kcdbecode(db.ptr)
-    if (code == KCENOREC)
-      return f()
-    else
-      message = bytestring(kcdbemsg(db.ptr))
-      throw(KyotoCabinetException(code, message))
-    end
+function get(default::Function, db::Db, k::String)
+  kbuf = bytestring(k)
+  vsize = Csize_t[1]
+  pv, code = throw_if(db, C_NULL, KCENOREC) do
+    kcdbget(db.ptr, kbuf, length(kbuf), pointer(vsize))
   end
-  bytestring(v, vSize[1])
+  code == KCENOREC ? default() : bytestring(pv, vsize[1])
 end
 
 get!(db::Db, k::String, default::String) = get!(()->default, db, k)
 
-function get!(f::Function, db::Db, k::String)
-  kb = bytestring(k)
-  vSize = Cuint[1]
-  pv = kcdbget(db.ptr, kb, length(kb), vSize)
-  if (pv == C_NULL)
-    code = kcdbecode(db.ptr)
-    if (code == KCENOREC)
-      v = f()
-      set(db, k, v)
-    else
-      message = bytestring(kcdbemsg(db.ptr))
-      throw(KyotoCabinetException(code, message))
-    end
-  else
-    v = bytestring(pv, vSize[1])
+function get!(default::Function, db::Db, k::String)
+  kbuf = bytestring(k)
+  vsize = Csize_t[1]
+  pv, code = throw_if(db, C_NULL, KCENOREC) do
+    kcdbget(db.ptr, kbuf, length(kbuf), pointer(vsize))
   end
-  v
+  code == KCENOREC ? set(db, k, default()) : bytestring(pv, vsize[1])
 end
 
 # Indexable collection
@@ -174,19 +150,11 @@ getindex(db::Db, k::String) = get(db, k)
 setindex!(db::Db, v::String, k::String) = set(db, k, v)
 
 function haskey(db::Db, k::String)
-  kb = bytestring(k)
-  v = kcdbcheck(db.ptr, kb, length(kb))
-  if (0 <= v)
-    return true
-  else
-    code = kcdbecode(db.ptr)
-    if (code == KCENOREC)
-      return false
-    else
-      message = bytestring(kcdbemsg(db.ptr))
-      throw(KyotoCabinetException(code, message))
-    end
+  kbuf = bytestring(k)
+  v, code = throw_if(db, -1, KCENOREC) do
+    kcdbcheck(db.ptr, kbuf, length(kbuf))
   end
+  code != KCENOREC
 end
 
 # Jump to the first record. Return false if there is no first record.
@@ -202,18 +170,10 @@ function _next!(cursor::Cursor)
 end
 
 function _move!(cursor::Cursor, f)
-  ok = f(cursor)
-  if (ok == 0)
-    code = kccurecode(cursor.ptr)
-    if (code == KCENOREC)
-      return false
-    else
-      message = bytestring(kccuremsg(cursor.ptr))
-      throw(KyotoCabinetException(code, message))
-    end
-  else
-    return true
+  ok, code = throw_if(cursor, 0, KCENOREC) do
+    f(cursor)
   end
+  code != KCENOREC
 end
 
 function _get(cursor::Cursor)
@@ -233,6 +193,34 @@ end
 close(cursor::Cursor) = destroy(cursor)
 
 # KyotoCabinet exceptions
+function throw_if(f::Function, db::Db, result_invalid, ecode_valid)
+  result = f()
+  if (result == result_invalid)
+    code = kcdbecode(db.ptr)
+    if (code == ecode_valid)
+      return (result, code)
+    else
+      message = bytestring(kcdbemsg(db.ptr))
+      throw(KyotoCabinetException(code, message))
+    end
+  end
+  (result, KCESUCCESS)
+end
+
+function throw_if(f::Function, cursor::Cursor, result_invalid, ecode_valid)
+  result = f()
+  if (result == result_invalid)
+    code = kccurecode(cursor.ptr)
+    if (code == ecode_valid)
+      return (result, code)
+    else
+      message = bytestring(kccuremsg(cursor.ptr))
+      throw(KyotoCabinetException(code, message))
+    end
+  end
+  (result, KCESUCCESS)
+end
+
 function kcexception(db::Db)
   @assert db.ptr != C_NULL
 
