@@ -2,6 +2,8 @@ module kyotocabinet
 
 include("c.jl")
 
+import Base: length, start, next, done
+
 using .c
 
 export
@@ -41,14 +43,14 @@ type KyotoCabinetException <: Exception
 end
 
 # Base functions
-function Base.length(db::Db)
+function length(db::Db)
   count = kcdbcount(db.ptr)
   if (count == -1) throw(kcexception(db)) end
   count
 end
 
 # TODO Support length() for generator over cursor. Does it make sense?
-function Base.length(cur::Cursor)
+function length(cur::Cursor)
   db_ptr = kccurdb(cur.ptr)
   if (db_ptr == C_NULL) throw(kcexception(cur)) end
   count = kcdbcount(db_ptr)
@@ -61,12 +63,12 @@ function Base.length(cur::Cursor)
 end
 
 # Iterable interface
-function Base.start(cur::Cursor)
+function start(cur::Cursor)
   cur.done = !_start!(cur)
   cur.row = convert(Uint, 0)
 end
 
-function Base.next(cur::Cursor, st::Uint)
+function next(cur::Cursor, st::Uint)
   if st == cur.row
     kv = _get(cur)
     cur.done = !_next!(cur)
@@ -77,7 +79,7 @@ function Base.next(cur::Cursor, st::Uint)
   (kv, cur.row)
 end
 
-Base.done(cur::Cursor, st::Uint) = cur.done
+done(cur::Cursor, st::Uint) = cur.done
 
 function open(db::Db, file::String, mode::Uint)
   ok = kcdbopen(db.ptr, bytestring(file), mode)
