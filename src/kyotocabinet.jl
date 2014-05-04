@@ -132,6 +132,22 @@ function get(db::Db, k::String, default::String)
   bytestring(v, vSize[1])
 end
 
+function get(f::Function, db::Db, k::String)
+  kb = bytestring(k)
+  vSize = Cuint[1]
+  v = kcdbget(db.ptr, kb, length(kb), vSize)
+  if (v == C_NULL)
+    code = kcdbecode(db.ptr)
+    if (code == KCENOREC)
+      return f()
+    else
+      message = bytestring(kcdbemsg(db.ptr))
+      throw(KyotoCabinetException(code, message))
+    end
+  end
+  bytestring(v, vSize[1])
+end
+
 function haskey(db::Db, k::String)
   kb = bytestring(k)
   v = kcdbcheck(db.ptr, kb, length(kb))

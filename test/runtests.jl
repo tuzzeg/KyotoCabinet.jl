@@ -143,6 +143,11 @@ function test_dict_get()
     @assert "1" == get(db, "a", "0")
     @assert "2" == get(db, "b", "0")
     @assert "0" == get(db, "z", "0")
+
+    f() = "0"
+    @assert "1" == get(f, db, "a")
+    @assert "2" == get(f, db, "b")
+    @assert "0" == get(f, db, "z")
   end
 end
 
