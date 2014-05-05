@@ -203,6 +203,13 @@ function test_associative()
   end
 end
 
+function test_path()
+  file = tempname() * ".kch"
+  open(file, KCOWRITER | KCOCREATE) do db
+    @assert file == path(db)
+  end
+end
+
 function empty_db(db::Db)
 end
 
@@ -221,6 +228,7 @@ end
 
 test_open()
 test_length()
+test_path()
 test_get_set()
 test_iterate_empty()
 test_iterate()

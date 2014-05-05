@@ -16,7 +16,9 @@ export
   kcfree,
 
   # DB functions
-  kcdbnew, kcdbdel, kcdbopen, kcdbclose, kcdbecode, kcdbemsg, kcdbset, kcdbget, kcdbcursor, kcdbcount, kcdbcheck, kcdbclear, kcdbremove, kcdbseize,
+  kcdbnew, kcdbdel, kcdbopen, kcdbclose, kcdbecode, kcdbemsg, kcdbset, kcdbget,
+  kcdbcursor, kcdbcount, kcdbcheck, kcdbclear, kcdbremove, kcdbseize,
+  kcdbpath,
 
   # Cursor functions
   kccurdel, kccurjump, kccurstep, kccurget, kccurecode, kccuremsg, kccurdb
@@ -119,6 +121,11 @@ end
 function kcdbseize(db::KCDBPtr, kbuf, ksize, vsize)
   ccall((:kcdbseize, LIB), CString, (KCDBPtr, CString, Cuint, Ptr{Cuint}),
     db, kbuf, ksize, vsize)
+end
+
+# Get the path of the database file.
+function kcdbpath(db::KCDBPtr)
+  ccall((:kcdbpath, LIB), CString, (KCDBPtr,), db)
 end
 
 # Create a polymorphic cursor object.

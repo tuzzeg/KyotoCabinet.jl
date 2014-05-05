@@ -20,7 +20,7 @@ export
   Db, Cursor, KyotoCabinetException,
 
   # Db methods
-  open, close, get, set
+  open, close, get, set, path
 
 type Db
   ptr :: Ptr{Void}
@@ -249,6 +249,10 @@ end
 
 close(cursor::Cursor) = destroy(cursor)
 
+function path(db::Db)
+  _copy_bytestring(kcdbpath(db.ptr))
+end
+
 # KyotoCabinet exceptions
 function throw_if(f::Function, db::Db, result_invalid, ecode_valid)
   result = f()
@@ -306,6 +310,13 @@ end
 
 function _copy_bytestring(p, size)
   v = bytestring(p, size)
+  ok = kcfree(p)
+  if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
+  v
+end
+
+function _copy_bytestring(p)
+  v = bytestring(p)
   ok = kcfree(p)
   if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
   v
