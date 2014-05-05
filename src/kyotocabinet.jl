@@ -2,8 +2,16 @@ module kyotocabinet
 
 include("c.jl")
 
-import Base: length, start, next, done
-import Base: haskey, get, get!, getindex, setindex!
+# Iteration
+import Base: start, next, done
+
+# Generic collections
+import Base: isempty, empty!, length
+
+# Indexed collections
+import Base: getindex, setindex!
+# Dict
+import Base: haskey, getkey, get, get!, delete!, pop!
 
 using .c
 
@@ -43,11 +51,19 @@ type KyotoCabinetException <: Exception
   message :: String
 end
 
-# Base functions
+# Generic collections
+isempty(db::Db) = (length(db) == 0)
+
 function length(db::Db)
   count = kcdbcount(db.ptr)
   if (count == -1) throw(kcexception(db)) end
   count
+end
+
+function empty!(db::Db)
+  ok = kcdbclear(db.ptr)
+  if (ok == 0) throw(kcexception(db)) end
+  db
 end
 
 # TODO Support length() for generator over cursor. Does it make sense?
@@ -112,6 +128,19 @@ function destroy(db::Db)
   db.ptr = C_NULL
 end
 
+# Dict methods
+function haskey(db::Db, k::String)
+  kbuf = bytestring(k)
+  v, code = throw_if(db, -1, KCENOREC) do
+    kcdbcheck(db.ptr, kbuf, length(kbuf))
+  end
+  code != KCENOREC
+end
+
+function getkey(db::Db, key::String, default::String)
+  haskey(db, key) ? key : default
+end
+
 function set(db::Db, k::String, v::String)
   kb = bytestring(k)
   vb = bytestring(v)
@@ -122,10 +151,10 @@ end
 
 function get(db::Db, k::String)
   kb = bytestring(k)
-  vSize = Cuint[1]
-  v = kcdbget(db.ptr, kb, length(kb), vSize)
-  if (v == C_NULL) throw(kcexception(db)) end
-  bytestring(v, vSize[1])
+  vsize = Cuint[1]
+  pv = kcdbget(db.ptr, kb, length(kb), vsize)
+  if (pv == C_NULL) throw(kcexception(db)) end
+  _copy_bytestring(pv, vsize[1])
 end
 
 function get(db::Db, k::String, default::String)
@@ -134,7 +163,7 @@ function get(db::Db, k::String, default::String)
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbget(db.ptr, kbuf, length(kbuf), pointer(vsize))
   end
-  code == KCENOREC ? default : bytestring(pv, vsize[1])
+  code == KCENOREC ? default : _copy_bytestring(pv, vsize[1])
 end
 
 function get(default::Function, db::Db, k::String)
@@ -157,17 +186,33 @@ function get!(default::Function, db::Db, k::String)
   code == KCENOREC ? set(db, k, default()) : bytestring(pv, vsize[1])
 end
 
+function delete!(db::Db, k::String)
+  kbuf = bytestring(k)
+  ok = kcdbremove(db.ptr, kbuf, length(kbuf))
+  if (ok == 0) throw(kcexception(db)) end
+  db
+end
+
+function pop!(db::Db, k::String)
+  kb = bytestring(k)
+  vsize = Cuint[1]
+  pv = kcdbseize(db.ptr, kb, length(kb), vsize)
+  if (pv == C_NULL) throw(kcexception(db)) end
+  _copy_bytestring(pv, vsize[1])
+end
+
+function pop!(db::Db, k::String, default::String)
+  kbuf = bytestring(k)
+  vsize = Csize_t[1]
+  pv, code = throw_if(db, C_NULL, KCENOREC) do
+    kcdbseize(db.ptr, kbuf, length(kbuf), pointer(vsize))
+  end
+  code == KCENOREC ? default : _copy_bytestring(pv, vsize[1])
+end
+
 # Indexable collection
 getindex(db::Db, k::String) = get(db, k)
 setindex!(db::Db, v::String, k::String) = set(db, k, v)
-
-function haskey(db::Db, k::String)
-  kbuf = bytestring(k)
-  v, code = throw_if(db, -1, KCENOREC) do
-    kcdbcheck(db.ptr, kbuf, length(kbuf))
-  end
-  code != KCENOREC
-end
 
 # Jump to the first record. Return false if there is no first record.
 function _start!(cursor::Cursor)
@@ -257,6 +302,13 @@ function destroy(cursor::Cursor)
   end
   kccurdel(cursor.ptr)
   cursor.ptr = C_NULL
+end
+
+function _copy_bytestring(p, size)
+  v = bytestring(p, size)
+  ok = kcfree(p)
+  if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
+  v
 end
 
 end # module kyotocabinet

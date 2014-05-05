@@ -16,7 +16,7 @@ export
   kcfree,
 
   # DB functions
-  kcdbnew, kcdbdel, kcdbopen, kcdbclose, kcdbecode, kcdbemsg, kcdbset, kcdbget, kcdbcursor, kcdbcount, kcdbcheck,
+  kcdbnew, kcdbdel, kcdbopen, kcdbclose, kcdbecode, kcdbemsg, kcdbset, kcdbget, kcdbcursor, kcdbcount, kcdbcheck, kcdbclear, kcdbremove, kcdbseize,
 
   # Cursor functions
   kccurdel, kccurjump, kccurstep, kccurget, kccurecode, kccuremsg, kccurdb
@@ -102,6 +102,23 @@ end
 # Get the number of records.
 function kcdbcount(db::KCDBPtr)
   ccall((:kcdbcount, LIB), Clonglong, (KCDBPtr,), db)
+end
+
+# Remove all records.
+function kcdbclear(db::KCDBPtr)
+  ccall((:kcdbclear, LIB), Cint, (KCDBPtr,), db)
+end
+
+# Remove a record.
+function kcdbremove(db::KCDBPtr, kbuf, ksize)
+  ccall((:kcdbremove, LIB), Cint, (KCDBPtr, CString, Csize_t),
+    db, kbuf, ksize)
+end
+
+# Retrieve the value of a record and remove it atomically.
+function kcdbseize(db::KCDBPtr, kbuf, ksize, vsize)
+  ccall((:kcdbseize, LIB), CString, (KCDBPtr, CString, Cuint, Ptr{Cuint}),
+    db, kbuf, ksize, vsize)
 end
 
 # Create a polymorphic cursor object.

@@ -166,6 +166,32 @@ function test_dict_get!()
   end
 end
 
+function test_dict_modify()
+  test_with(abc_db) do db
+    @assert 3 == length(db)
+    empty!(db)
+    @assert isempty(db)
+  end
+
+  test_with(abc_db) do db
+    @assert "a" == getkey(db, "a", "0")
+    @assert "b" == getkey(db, "b", "0")
+    @assert "0" == getkey(db, "z", "0")
+
+    @assert haskey(db, "a")
+    delete!(db, "a")
+    @assert !haskey(db, "a")
+
+    @assert haskey(db, "b")
+    @assert "2" == pop!(db, "b", "0")
+    @assert !haskey(db, "b")
+
+    @assert "0" == pop!(db, "z", "0")
+
+    @test_throws pop!(db, "z")
+  end
+end
+
 function test_associative()
   test_with(abc_db) do db
     @assert "1" == db["a"]
@@ -206,4 +232,5 @@ test_get_set_failures()
 test_dict_haskey()
 test_dict_get()
 test_dict_get!()
+test_dict_modify()
 test_associative()

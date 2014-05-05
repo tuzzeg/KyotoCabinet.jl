@@ -10,6 +10,7 @@ next(iter, state) :: item, state
 -- Collection
 isempty(collection) :: Bool
 length(collection) :: Integer
+empty!(collection)
 
 -- Associative
 
@@ -30,5 +31,5 @@ pop!(collection, key[, default])
 keys(collection)
 values(collection)
 
-merge(collection, others...)
+# merge(collection, others...)
 merge!(collection, others...)
