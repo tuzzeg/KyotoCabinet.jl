@@ -82,9 +82,21 @@ end
 
 done(cur::Cursor, st::Uint) = cur.done
 
-function open(db::Db, file::String, mode::Uint)
+function open(file::String, mode::Uint)
+  db = Db()
   ok = kcdbopen(db.ptr, bytestring(file), mode)
   if (ok == 0) throw(kcexception(db)) end
+  db
+end
+
+function open(f::Function, file::String, mode::Uint)
+  db = open(file, mode)
+  try
+    f(db)
+  finally
+    close(db)
+    destroy(db)
+  end
 end
 
 function close(db::Db)

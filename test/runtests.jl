@@ -187,13 +187,9 @@ function abc_db(db::Db)
 end
 
 function test_with(check::Function, configure::Function)
-  db = Db()
-  open(db, tempname() * ".kch", KCOWRITER | KCOCREATE)
-  try
+  open(tempname() * ".kch", KCOWRITER | KCOCREATE) do db
     configure(db)
     check(db)
-  finally
-    close(db)
   end
 end
 
