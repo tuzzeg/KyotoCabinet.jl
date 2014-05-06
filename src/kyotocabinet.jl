@@ -20,7 +20,7 @@ export
   Db, Cursor, KyotoCabinetException,
 
   # Db methods
-  open, close, get, set, path
+  open, close, get, set, path, cas
 
 type Db
   ptr :: Ptr{Void}
@@ -126,6 +126,34 @@ function destroy(db::Db)
   end
   kcdbdel(db.ptr)
   db.ptr = C_NULL
+end
+
+function cas(db::Db, key::String, old::String, new::String)
+  kbuf = bytestring(key)
+  ovbuf = bytestring(old)
+  nvbuf = bytestring(new)
+  ok, code = throw_if(db, 0, KCELOGIC) do
+    kcdbcas(db.ptr, kbuf, length(kbuf), ovbuf, length(ovbuf), nvbuf, length(nvbuf))
+  end
+  code == KCESUCCESS
+end
+
+function cas(db::Db, key::String, old::(), new::String)
+  kbuf = bytestring(key)
+  nvbuf = bytestring(new)
+  ok, code = throw_if(db, 0, KCELOGIC) do
+    kcdbcas(db.ptr, kbuf, length(kbuf), C_NULL, 0, nvbuf, length(nvbuf))
+  end
+  code == KCESUCCESS
+end
+
+function cas(db::Db, key::String, old::String, new::())
+  kbuf = bytestring(key)
+  ovbuf = bytestring(old)
+  ok, code = throw_if(db, 0, KCELOGIC) do
+    kcdbcas(db.ptr, kbuf, length(kbuf), ovbuf, length(ovbuf), C_NULL, 0)
+  end
+  code == KCESUCCESS
 end
 
 # Dict methods

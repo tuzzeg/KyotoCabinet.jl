@@ -18,7 +18,7 @@ export
   # DB functions
   kcdbnew, kcdbdel, kcdbopen, kcdbclose, kcdbecode, kcdbemsg, kcdbset, kcdbget,
   kcdbcursor, kcdbcount, kcdbcheck, kcdbclear, kcdbremove, kcdbseize,
-  kcdbpath,
+  kcdbpath, kcdbcas,
 
   # Cursor functions
   kccurdel, kccurjump, kccurstep, kccurget, kccurecode, kccuremsg, kccurdb
@@ -97,7 +97,7 @@ end
 
 # Check the existence of a record.
 function kcdbcheck(db::KCDBPtr, kbuf, ksize)
-  ccall((:kcdbcheck, LIB), Cint, (KCDBPtr, CString, Csize_t),
+  ccall((:kcdbcheck, libkyotocabinet), Cint, (KCDBPtr, CString, Csize_t),
     db, kbuf, ksize)
 end
 
@@ -108,24 +108,31 @@ end
 
 # Remove all records.
 function kcdbclear(db::KCDBPtr)
-  ccall((:kcdbclear, LIB), Cint, (KCDBPtr,), db)
+  ccall((:kcdbclear, libkyotocabinet), Cint, (KCDBPtr,), db)
 end
 
 # Remove a record.
 function kcdbremove(db::KCDBPtr, kbuf, ksize)
-  ccall((:kcdbremove, LIB), Cint, (KCDBPtr, CString, Csize_t),
+  ccall((:kcdbremove, libkyotocabinet), Cint, (KCDBPtr, CString, Csize_t),
     db, kbuf, ksize)
 end
 
 # Retrieve the value of a record and remove it atomically.
 function kcdbseize(db::KCDBPtr, kbuf, ksize, vsize)
-  ccall((:kcdbseize, LIB), CString, (KCDBPtr, CString, Cuint, Ptr{Cuint}),
+  ccall((:kcdbseize, libkyotocabinet), CString, (KCDBPtr, CString, Cuint, Ptr{Cuint}),
     db, kbuf, ksize, vsize)
 end
 
 # Get the path of the database file.
 function kcdbpath(db::KCDBPtr)
-  ccall((:kcdbpath, LIB), CString, (KCDBPtr,), db)
+  ccall((:kcdbpath, libkyotocabinet), CString, (KCDBPtr,), db)
+end
+
+# Perform compare-and-swap.
+function kcdbcas(db::KCDBPtr, kbuf, ksize, ovbuf, ovsize, nvbuf, nvsize)
+  ccall((:kcdbcas, libkyotocabinet), Cint,
+    (KCDBPtr, CString, Csize_t, CString, Csize_t, CString, Csize_t),
+    db, kbuf, ksize, ovbuf, ovsize, nvbuf, nvsize)
 end
 
 # Create a polymorphic cursor object.

@@ -210,6 +210,26 @@ function test_path()
   end
 end
 
+function test_cas()
+  test_with(abc_db) do db
+    @assert cas(db, "a", "1", "1a")
+    @assert "1a" == get(db, "a")
+
+    @assert !cas(db, "a", "1", "1b")
+    @assert "1a" == get(db, "a")
+
+    @assert !cas(db, "z", "0", "0z")
+
+    @assert cas(db, "z", (), "0")
+    @assert "0" == get(db, "z")
+    @assert !cas(db, "z", (), "0z")
+
+    @assert cas(db, "z", "0", ())
+    @assert !haskey(db, "z")
+    @assert !cas(db, "z", "0", ())
+  end
+end
+
 function empty_db(db::Db)
 end
 
@@ -242,3 +262,4 @@ test_dict_get()
 test_dict_get!()
 test_dict_modify()
 test_associative()
+test_cas()
