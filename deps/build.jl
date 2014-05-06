@@ -3,7 +3,7 @@ using BinDeps
 @BinDeps.setup
 
 deps = [
-  libkyotocabinet = library_dependency("kyotocabinet", aliases = ["libkyotocabinet", "libkyotocabinet16"])
+  libkyotocabinet = library_dependency("libkyotocabinet", aliases = ["libkyotocabinet", "libkyotocabinet16"])
 ]
 
 @osx_only begin
@@ -26,3 +26,5 @@ provides(Sources, {
 provides(BuildProcess, {
   Autotools(libtarget = "libkyotocabinet.la") => libkyotocabinet,
 })
+
+@BinDeps.install [:libkyotocabinet => :libkyotocabinet]

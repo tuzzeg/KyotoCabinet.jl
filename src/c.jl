@@ -1,6 +1,6 @@
 module c
 
-const LIB = "libkyotocabinet"
+include("../deps/deps.jl")
 
 export
   # Types
@@ -53,45 +53,45 @@ const KCOTRYLOCK  = convert(Uint, 1 << 7) # lock without blocking
 const KCONOREPAIR = convert(Uint, 1 << 8) # open without auto repair
 
 # Release a region allocated in the library.
-kcfree(ptr) = ccall((:kcfree, LIB), Void, (Ptr{Void},), ptr)
+kcfree(ptr) = ccall((:kcfree, libkyotocabinet), Void, (Ptr{Void},), ptr)
 
 # Create a polymorphic database object.
-kcdbnew() = ccall((:kcdbnew, LIB), KCDBPtr, ())
+kcdbnew() = ccall((:kcdbnew, libkyotocabinet), KCDBPtr, ())
 
 # Destroy a database object.
 function kcdbdel(db::KCDBPtr)
-  ccall((:kcdbdel, LIB), Void, (KCDBPtr,), db)
+  ccall((:kcdbdel, libkyotocabinet), Void, (KCDBPtr,), db)
 end
 
 # Open a database file.
 function kcdbopen(db::KCDBPtr, path, mode)
-  ccall((:kcdbopen, LIB), Cint, (KCDBPtr, CString, Cuint), db, path, mode)
+  ccall((:kcdbopen, libkyotocabinet), Cint, (KCDBPtr, CString, Cuint), db, path, mode)
 end
 
 # Close the database file.
 function kcdbclose(db::KCDBPtr)
-  ccall((:kcdbclose, LIB), Cint, (KCDBPtr,), db)
+  ccall((:kcdbclose, libkyotocabinet), Cint, (KCDBPtr,), db)
 end
 
 # Get the code of the last happened error.
 function kcdbecode(db::KCDBPtr)
-  ccall((:kcdbecode, LIB), Cint, (KCDBPtr,), db)
+  ccall((:kcdbecode, libkyotocabinet), Cint, (KCDBPtr,), db)
 end
 
 # Get the supplement message of the last happened error.
 function kcdbemsg(db::KCDBPtr)
-  ccall((:kcdbemsg, LIB), CString, (KCDBPtr,), db)
+  ccall((:kcdbemsg, libkyotocabinet), CString, (KCDBPtr,), db)
 end
 
 # Set the value of a record.
 function kcdbset(db::KCDBPtr, kbuf, ksize, vbuf, vsize)
-  ccall((:kcdbset, LIB), Cint, (KCDBPtr, CString, Cuint, CString, Cuint),
+  ccall((:kcdbset, libkyotocabinet), Cint, (KCDBPtr, CString, Cuint, CString, Cuint),
     db, kbuf, ksize, vbuf, vsize)
 end
 
 # Retrieve the value of a record.
 function kcdbget(db::KCDBPtr, kbuf, ksize, vsize)
-  ccall((:kcdbget, LIB), CString, (KCDBPtr, CString, Cuint, Ptr{Cuint}),
+  ccall((:kcdbget, libkyotocabinet), CString, (KCDBPtr, CString, Cuint, Ptr{Cuint}),
     db, kbuf, ksize, vsize)
 end
 
@@ -103,7 +103,7 @@ end
 
 # Get the number of records.
 function kcdbcount(db::KCDBPtr)
-  ccall((:kcdbcount, LIB), Clonglong, (KCDBPtr,), db)
+  ccall((:kcdbcount, libkyotocabinet), Clonglong, (KCDBPtr,), db)
 end
 
 # Remove all records.
@@ -130,44 +130,44 @@ end
 
 # Create a polymorphic cursor object.
 function kcdbcursor(db::KCDBPtr)
-  ccall((:kcdbcursor, LIB), KCCURPtr, (KCDBPtr,), db)
+  ccall((:kcdbcursor, libkyotocabinet), KCCURPtr, (KCDBPtr,), db)
 end
 
 # Destroy a cursor object.
 function kccurdel(cursor::KCCURPtr)
-  ccall((:kccurdel, LIB), Void, (KCCURPtr,), cursor)
+  ccall((:kccurdel, libkyotocabinet), Void, (KCCURPtr,), cursor)
 end
 
 # Get a pair of the key and the value of the current record.
 function kccurget(cursor::KCCURPtr, ksize, v, vsize, step)
-  ccall((:kccurget, LIB), CString,
+  ccall((:kccurget, libkyotocabinet), CString,
     (KCCURPtr, Ptr{Cuint}, Ptr{CString}, Ptr{Cuint}, Cint),
     cursor, ksize, v, vsize, step)
 end
 
 # Jump the cursor to the first record for forward scan.
 function kccurjump(cursor::KCCURPtr)
-  ccall((:kccurjump, LIB), Cint, (KCCURPtr,), cursor)
+  ccall((:kccurjump, libkyotocabinet), Cint, (KCCURPtr,), cursor)
 end
 
 # Step the cursor to the next record.
 function kccurstep(cursor::KCCURPtr)
-  ccall((:kccurstep, LIB), Cint, (KCCURPtr,), cursor)
+  ccall((:kccurstep, libkyotocabinet), Cint, (KCCURPtr,), cursor)
 end
 
 # Get the database object.
 function kccurdb(cursor::KCCURPtr)
-  ccall((:kccurdb, LIB), KCDBPtr, (KCCURPtr,), cursor)
+  ccall((:kccurdb, libkyotocabinet), KCDBPtr, (KCCURPtr,), cursor)
 end
 
 # Get the code of the last happened error.
 function kccurecode(cursor::KCCURPtr)
-  ccall((:kccurecode, LIB), Cint, (KCCURPtr,), cursor)
+  ccall((:kccurecode, libkyotocabinet), Cint, (KCCURPtr,), cursor)
 end
 
 # Get the supplement message of the last happened error.
 function kccuremsg(cursor::KCCURPtr)
-  ccall((:kccuremsg, LIB), CString, (KCCURPtr,), cursor)
+  ccall((:kccuremsg, libkyotocabinet), CString, (KCCURPtr,), cursor)
 end
 
 end # module c
