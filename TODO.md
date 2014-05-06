@@ -33,3 +33,9 @@ values(collection)
 
 # merge(collection, others...)
 merge!(collection, others...)
+
+# KyotoCabinet specific
+cas
+bulk (get, set, remove)
+
+# Immutable structures?
