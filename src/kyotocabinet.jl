@@ -46,7 +46,7 @@ type Cursor
   end
 end
 
-type KyotoCabinetException <: Exception
+immutable KyotoCabinetException <: Exception
   code :: Int32
   message :: String
 end
