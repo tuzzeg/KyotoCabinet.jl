@@ -177,7 +177,7 @@ function set(db::Db, k::String, v::String)
   v
 end
 
-function bulkset{T}(db::Db, kvs::Dict{T,T}, atomic::Bool)
+function bulkset{T<:String}(db::Db, kvs::Dict{T,T}, atomic::Bool)
   # make a copy to prevent GC
   recbuf = [(bytestring(k), bytestring(v)) for (k, v) in kvs]
   recs = [KCREC(KCSTR(k, length(k)), KCSTR(v, length(v))) for (k, v) in recbuf]
