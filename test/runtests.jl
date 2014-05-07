@@ -230,6 +230,26 @@ function test_cas()
   end
 end
 
+function test_bulkset()
+  test_with(empty_db) do db
+    @assert !haskey(db, "a")
+    @assert !haskey(db, "b")
+    @assert !haskey(db, "c")
+
+    @assert 3 == bulkset(db, ["a"=>"a1", "b"=>"b1", "c"=>"c1"], true)
+
+    @assert "a1" == db["a"]
+    @assert "b1" == db["b"]
+    @assert "c1" == db["c"]
+
+    @assert 2 == bulkset(db, ["a"=>"a2", "b"=>"b2"], false)
+
+    @assert "a2" == db["a"]
+    @assert "b2" == db["b"]
+    @assert "c1" == db["c"]
+  end
+end
+
 function empty_db(db::Db)
 end
 
@@ -263,3 +283,4 @@ test_dict_get!()
 test_dict_modify()
 test_associative()
 test_cas()
+test_bulkset()

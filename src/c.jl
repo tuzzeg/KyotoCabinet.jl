@@ -4,7 +4,7 @@ include("../deps/deps.jl")
 
 export
   # Types
-  KCDBPtr, KCCURPtr, CString,
+  KCDBPtr, KCCURPtr, CString, KCREC, KCSTR,
 
   # Error codes
   KCESUCCESS, KCENOIMPL, KCEINVALID, KCENOREPOS, KCENOPERM, KCEBROKEN, KCEDUPREC, KCENOREC, KCELOGIC, KCESYSTEM, KCEMISC,
@@ -19,6 +19,7 @@ export
   kcdbnew, kcdbdel, kcdbopen, kcdbclose, kcdbecode, kcdbemsg, kcdbset, kcdbget,
   kcdbcursor, kcdbcount, kcdbcheck, kcdbclear, kcdbremove, kcdbseize,
   kcdbpath, kcdbcas,
+  kcdbsetbulk,
 
   # Cursor functions
   kccurdel, kccurjump, kccurstep, kccurget, kccurecode, kccuremsg, kccurdb
@@ -27,6 +28,16 @@ export
 typealias KCDBPtr Ptr{Void}
 typealias KCCURPtr Ptr{Void}
 typealias CString Ptr{Uint8}
+
+immutable KCSTR
+  buf::CString
+  size::Csize_t
+end
+
+immutable KCREC
+  key::KCSTR
+  value::KCSTR
+end
 
 # Error codes
 const KCESUCCESS = convert(Cint,  0) # success
@@ -133,6 +144,13 @@ function kcdbcas(db::KCDBPtr, kbuf, ksize, ovbuf, ovsize, nvbuf, nvsize)
   ccall((:kcdbcas, libkyotocabinet), Cint,
     (KCDBPtr, CString, Csize_t, CString, Csize_t, CString, Csize_t),
     db, kbuf, ksize, ovbuf, ovsize, nvbuf, nvsize)
+end
+
+# Store records at once.
+function kcdbsetbulk(db::KCDBPtr, recs, rnum, atomic)
+  ccall((:kcdbsetbulk, libkyotocabinet), Int64,
+    (KCDBPtr, Ptr{KCREC}, Csize_t, Cint),
+    db, convert(Ptr{KCREC}, pointer(recs)), rnum, atomic)
 end
 
 # Create a polymorphic cursor object.
