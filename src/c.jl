@@ -19,7 +19,7 @@ export
   kcdbnew, kcdbdel, kcdbopen, kcdbclose, kcdbecode, kcdbemsg, kcdbset, kcdbget,
   kcdbcursor, kcdbcount, kcdbcheck, kcdbclear, kcdbremove, kcdbseize,
   kcdbpath, kcdbcas,
-  kcdbsetbulk,
+  kcdbsetbulk, kcdbremovebulk,
 
   # Cursor functions
   kccurdel, kccurjump, kccurstep, kccurget, kccurecode, kccuremsg, kccurdb
@@ -151,6 +151,13 @@ function kcdbsetbulk(db::KCDBPtr, recs, rnum, atomic)
   ccall((:kcdbsetbulk, libkyotocabinet), Int64,
     (KCDBPtr, Ptr{KCREC}, Csize_t, Cint),
     db, convert(Ptr{KCREC}, pointer(recs)), rnum, atomic)
+end
+
+# Remove records at once.
+function kcdbremovebulk(db::KCDBPtr, keys, knum, atomic)
+  ccall((:kcdbremovebulk, libkyotocabinet), Int64,
+    (KCDBPtr, Ptr{KCSTR}, Csize_t, Cint),
+    db, convert(Ptr{KCSTR}, pointer(keys)), knum, atomic)
 end
 
 # Create a polymorphic cursor object.

@@ -236,17 +236,34 @@ function test_bulkset()
     @assert !haskey(db, "b")
     @assert !haskey(db, "c")
 
-    @assert 3 == bulkset(db, ["a"=>"a1", "b"=>"b1", "c"=>"c1"], true)
+    @assert 3 == bulkset!(db, ["a"=>"a1", "b"=>"b1", "c"=>"c1"], true)
 
     @assert "a1" == db["a"]
     @assert "b1" == db["b"]
     @assert "c1" == db["c"]
 
-    @assert 2 == bulkset(db, ["a"=>"a2", "b"=>"b2"], false)
+    @assert 2 == bulkset!(db, ["a"=>"a2", "b"=>"b2"], false)
 
     @assert "a2" == db["a"]
     @assert "b2" == db["b"]
     @assert "c1" == db["c"]
+  end
+end
+
+function test_bulkdelete()
+  test_with(abc_db) do db
+    @assert haskey(db, "a")
+    @assert haskey(db, "b")
+    @assert haskey(db, "c")
+
+    @assert 2 == bulkdelete!(db, ["a", "b"], true)
+
+    @assert !haskey(db, "a")
+    @assert !haskey(db, "b")
+    @assert haskey(db, "c")
+
+    @assert 1 == bulkdelete!(db, ["a", "c"], true)
+    @assert 0 == bulkdelete!(db, ["b", "c"], false)
   end
 end
 
@@ -284,3 +301,4 @@ test_dict_modify()
 test_associative()
 test_cas()
 test_bulkset()
+test_bulkdelete()

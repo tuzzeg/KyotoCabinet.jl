@@ -20,7 +20,7 @@ export
   Db, Cursor, KyotoCabinetException,
 
   # Db methods
-  open, close, get, set, path, cas, bulkset
+  open, close, get, set, path, cas, bulkset!, bulkdelete!
 
 type Db
   ptr :: Ptr{Void}
@@ -177,11 +177,19 @@ function set(db::Db, k::String, v::String)
   v
 end
 
-function bulkset{T}(db::Db, kvs::Dict{T,T}, atomic::Bool)
+function bulkset!{T}(db::Db, kvs::Dict{T,T}, atomic::Bool)
   # make a copy to prevent GC
   recbuf = [(bytestring(k), bytestring(v)) for (k, v) in kvs]
   recs = [KCREC(KCSTR(k, length(k)), KCSTR(v, length(v))) for (k, v) in recbuf]
   c = kcdbsetbulk(db.ptr, recs, length(recs), atomic ? 1 : 0)
+  if (c == -1) throw(kcexception(db)) end
+  c
+end
+
+function bulkdelete!{T<:String}(db::Db, keys::Array{T}, atomic::Bool)
+  keybuf = [bytestring(k) for k in keys]
+  ks = [KCSTR(k, length(k)) for k in keybuf]
+  c = kcdbremovebulk(db.ptr, ks, length(ks), atomic ? 1 : 0)
   if (c == -1) throw(kcexception(db)) end
   c
 end
