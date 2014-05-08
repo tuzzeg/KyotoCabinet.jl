@@ -29,7 +29,7 @@ prefix = joinpath(BinDeps.depsdir(libkyotocabinet), "usr")
 lib_kc_srcdir = joinpath(BinDeps.depsdir(libkyotocabinet), "src", "kyotocabinet-$(lib_kc_ver)")
 provides(BuildProcess,
   (@build_steps begin
-    GetSource(libkyotocabinet)
+    GetSources(libkyotocabinet)
     CreateDirectory(prefix)
     @build_steps begin
       ChangeDirectory(lib_kc_srcdir)
