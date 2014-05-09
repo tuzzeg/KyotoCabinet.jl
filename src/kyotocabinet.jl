@@ -10,8 +10,9 @@ import Base: isempty, empty!, length
 
 # Indexed collections
 import Base: getindex, setindex!
+
 # Dict
-import Base: haskey, getkey, get, get!, delete!, pop!
+import Base: Associative, haskey, getkey, get, get!, delete!, pop!
 
 using .c
 
@@ -22,7 +23,7 @@ export
   # Db methods
   open, close, get, set, path, cas, bulkset!, bulkdelete!
 
-type Db
+type Db <: Associative
   ptr :: Ptr{Void}
 
   function Db()

@@ -203,6 +203,16 @@ function test_associative()
   end
 end
 
+function test_associative_merge()
+  test_with(empty_db) do db
+    @assert !haskey(db, "a")
+    @assert !haskey(db, "b")
+    merge!(db, ["a"=>"a1", "b"=>"b1"])
+    @assert "a1" == db["a"]
+    @assert "b1" == db["b"]
+  end
+end
+
 function test_path()
   file = tempname() * ".kch"
   open(file, KCOWRITER | KCOCREATE) do db
@@ -298,7 +308,10 @@ test_dict_haskey()
 test_dict_get()
 test_dict_get!()
 test_dict_modify()
+
 test_associative()
+test_associative_merge()
+
 test_cas()
 test_bulkset()
 test_bulkdelete()
