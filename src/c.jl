@@ -32,6 +32,10 @@ typealias CString Ptr{Uint8}
 immutable KCSTR
   buf::CString
   size::Csize_t
+
+  KCSTR(buf::CString, size::Csize_t) = new(buf, size)
+  KCSTR(buf, size) = new(convert(CString, buf), convert(Csize_t, size))
+  KCSTR(buf::ASCIIString) = new(convert(CString, buf), convert(Csize_t, length(buf)))
 end
 
 immutable KCREC
