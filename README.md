@@ -61,7 +61,16 @@ end
 
 There are also [KyotoCabinet](http://fallabs.com/kyotocabinet) specific methods.
 
-**`cas(db::Db, key, old, new)`**
+### Database info
+
+```julia
+# Get the path of the database file
+p = path(db)
+```
+
+### Compare-and-swap
+
+`cas(db::Db, key, old, new)`
 
 Compare-and-swap method. Update the value only if it's in the expected state.
 Returns `true` if value have been updated.
@@ -72,18 +81,12 @@ cas(db, "k", "old", ())    # remove record, only if db["k"] == "old"
 cas(db, "k", (), "new")    # add record, only if "k" not in db
 ```
 
-**`bulkset!(db::Db, kvs::Dict, atomic)`**
-
-Updates records in one operation, atomically if needed.
+### Bulk operations
 
 ```julia
+# Updates records in one operation, atomically if needed.
 bulkset!(db, ["a" => "1", "b" => "2"], true)
-```
 
-**`bulkdelete!(db::Db, keys, atomic)`**
-
-Removes records in one operation, atomically if needed.
-
-```julia
+# Removes records in one operation, atomically if needed.
 bulkdelete!(db, ["a", "b"], true)
 ```
