@@ -3,14 +3,22 @@ using Base.Test
 using kyotocabinet
 using kyotocabinet.c
 
-# Open KC file.
-# Expected: file created
+# TODO: add excpetion type to @test_throws
+
+# TODO
+# File creation failures.
+# - Invalid file name
+# - File name clash with existing dir
+
+# Get/Set failures
+# - Read non existing keys
+# - Set value when opened in R/O mode
+
 function test_open()
   test_with(empty_db) do db
   end
 end
 
-# Get/Set values.
 function test_get_set()
   test_with(abc_db) do db
     @assert "1" == get(db, "a")
@@ -19,7 +27,6 @@ function test_get_set()
   end
 end
 
-# Length
 function test_length()
   test_with(empty_db) do db
     @assert 0 == length(db)
@@ -36,7 +43,7 @@ function test_cursor_empty()
   end
 end
 
-# Iterate through values
+# Use cursor to iterate records
 function test_iterate_empty()
   test_with(empty_db) do db
     cur = Cursor(db)
@@ -49,6 +56,7 @@ function test_iterate_empty()
   end
 end
 
+# Test for loop over records
 function test_iterate()
   test_with(abc_db) do db
     cur = Cursor(db)
@@ -61,6 +69,7 @@ function test_iterate()
   end
 end
 
+# next should fail on empty db
 function test_iterate_nexts_empty()
   test_with(empty_db) do db
     cur = Cursor(db)
@@ -71,6 +80,8 @@ function test_iterate_nexts_empty()
   end
 end
 
+# Test next->next without done method
+# All movements should be in next() method.
 function test_iterate_nexts()
   test_with(abc_db) do db
     cur = Cursor(db)
@@ -106,6 +117,7 @@ function test_iterate_nexts_throws()
   end
 end
 
+# Test generator syntax over records
 function test_generator()
   test_with(abc_db) do db
     cur = Cursor(db)
@@ -115,13 +127,6 @@ function test_generator()
   end
 end
 
-# File creation failures.
-# - Invalid file name
-# - File name clash with existing dir
-
-# Get/Set failures
-# - Read non existing keys
-# - Set value when opened in R/O mode
 function test_get_set_failures()
   test_with(abc_db) do db
     @test_throws get(db, "z")
@@ -203,6 +208,7 @@ function test_associative()
   end
 end
 
+# Generic Associative methods should work with Db as well
 function test_associative_merge()
   test_with(empty_db) do db
     @assert !haskey(db, "a")
@@ -297,13 +303,16 @@ test_open()
 test_length()
 test_path()
 test_get_set()
+
 test_iterate_empty()
 test_iterate()
 test_iterate_nexts_empty()
 test_iterate_nexts()
 test_iterate_nexts_throws()
+
 test_generator()
 test_get_set_failures()
+
 test_dict_haskey()
 test_dict_get()
 test_dict_get!()
