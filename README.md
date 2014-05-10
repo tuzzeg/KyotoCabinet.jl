@@ -10,7 +10,7 @@ This package provides bindings for [KyotoCabinet](http://fallabs.com/kyotocabine
 Pkg.add("kyotocabinet")
 ```
 
-## Usage
+## Generic interface
 
 ```julia
 using kyotocabinet
@@ -37,7 +37,7 @@ open("db.kch", KCOWRITER | KCOCREATE) do db
   # Basic getindex, setindex! methods
   db["a"] = "1"
   println(db["a"])
-  
+
   # Dict methods also implemented:
   # haskey, getkey, get, get!, delete!, pop!
   if (!haskey(db, "x"))
@@ -59,6 +59,7 @@ open("db.kch", KCOREADER) do db
 end
 ```
 
+## KyotoCabinet specific
 There are also [KyotoCabinet](http://fallabs.com/kyotocabinet) specific methods.
 
 ### Database info
