@@ -79,7 +79,7 @@ function empty!(db::Db)
   db
 end
 
-# Iterable interface
+# Iterable interface for Db
 
 const RECORDS_EOF = RecordIterator(Cur())
 

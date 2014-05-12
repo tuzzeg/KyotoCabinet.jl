@@ -4,6 +4,7 @@ using kyotocabinet
 using kyotocabinet.c
 
 # TODO: add excpetion type to @test_throws
+# See: https://github.com/JuliaLang/julia/commit/6fa50c4183358047c772a508e7a1a44a47c94a95
 
 # TODO
 # File creation failures.
@@ -110,6 +111,59 @@ function test_iterate_next()
     @assert done(db, s3)
 
     @test_throws next(db, s3)
+  end
+end
+
+# Test keys iterator
+function test_keys_empty()
+  test_with(empty_db) do db
+    log = string()
+    for k = keys(db)
+      log = log * " $k"
+    end
+    @assert "" == log
+  end
+end
+
+function test_keys()
+  test_with(abc_db) do db
+    log = string()
+    for k = keys(db)
+      log = log * " $k"
+    end
+    @assert " a b c" == log
+  end
+end
+
+# Test values iterator
+function test_values_empty()
+  test_with(empty_db) do db
+    log = string()
+    for k = values(db)
+      log = log * " $k"
+    end
+    @assert "" == log
+  end
+end
+
+function test_values()
+  test_with(abc_db) do db
+    log = string()
+    for k = values(db)
+      log = log * " $k"
+    end
+    @assert " 1 2 3" == log
+  end
+end
+
+# Test for loop over records
+function test_iterate()
+  test_with(abc_db) do db
+    log = string()
+    for (k, v) = db
+      log = log * " $k:$v"
+    end
+    @assert " a:1 b:2 c:3" == log
   end
 end
 
@@ -295,6 +349,12 @@ test_iterate()
 test_iterate_nexts_empty()
 test_iterate_nexts()
 test_iterate_next()
+
+test_keys_empty()
+test_keys()
+
+test_values_empty()
+test_values()
 
 test_generator()
 test_get_set_failures()
