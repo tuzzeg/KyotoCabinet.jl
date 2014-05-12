@@ -32,7 +32,7 @@ type Db <: Associative
     else
       ptr = kcdbnew()
       self = new(ptr)
-      # finalizer(self, destroy)
+      finalizer(self, destroy)
       self
     end
   end
@@ -133,6 +133,7 @@ function destroy(db::Db)
   if db.ptr == C_NULL
     return
   end
+  kcdbclose(db.ptr)
   kcdbdel(db.ptr)
   db.ptr = C_NULL
 end
