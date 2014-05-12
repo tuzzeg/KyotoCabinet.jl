@@ -47,15 +47,14 @@ open("db.kch", KCOWRITER | KCOCREATE) do db
 end
 ```
 
-To iterate through records, use `Cursor` object:
+Support iteration over records, keys and values:
 
 ```julia
-open("db.kch", KCOREADER) do db
-  cur = Cursor(db)
-  for (k, v) = cur
-    println("k=$k v=$v")
-  end
-  close(cur)
+for (k, v) = db
+  println("k=$k v=$v")
+end
+for k = keys(db)
+  println("k=$k")
 end
 ```
 
