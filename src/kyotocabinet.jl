@@ -18,7 +18,7 @@ using .c
 
 export
   # Types
-  Db, Cursor, KyotoCabinetException,
+  Db, KyotoCabinetException,
 
   # Db methods
   open, close, get, set, path, cas, bulkset!, bulkdelete!
@@ -35,19 +35,6 @@ type Db <: Associative
       # finalizer(self, destroy)
       self
     end
-  end
-end
-
-type Cursor
-  ptr :: Ptr{Void}
-  row :: Uint # Inner counter, incremented at each move
-  done :: Bool
-
-  function Cursor(db::Db)
-    ptr = kcdbcursor(db.ptr)
-    self = new(ptr)
-    # finalizer(self, destroy)
-    self
   end
 end
 
@@ -77,6 +64,7 @@ immutable KyotoCabinetException <: Exception
 end
 
 # Generic collections
+
 isempty(db::Db) = (length(db) == 0)
 
 function length(db::Db)
@@ -91,20 +79,8 @@ function empty!(db::Db)
   db
 end
 
-# TODO Support length() for generator over cursor. Does it make sense?
-function length(cur::Cursor)
-  db_ptr = kccurdb(cur.ptr)
-  if (db_ptr == C_NULL) throw(kcexception(cur)) end
-  count = kcdbcount(db_ptr)
-  if (count == -1)
-    code = kcdbecode(db_ptr)
-    message = bytestring(kcdbemsg(db_ptr))
-    throw(KyotoCabinetException(code, message))
-  end
-  count
-end
-
 # Iterable interface
+
 const RECORDS_EOF = RecordIterator(Cur())
 
 function start(db::Db)
@@ -129,24 +105,7 @@ function done(db::Db, it::RecordIterator)
   it.cursor.ptr == C_NULL
 end
 
-# Iterable interface
-function start(cur::Cursor)
-  cur.done = !_start!(cur)
-  cur.row = convert(Uint, 0)
-end
-
-function next(cur::Cursor, st::Uint)
-  if st == cur.row
-    kv = _get(cur)
-    cur.done = !_next!(cur)
-    cur.row += 1
-  else
-    throw(KyotoCabinetException(KCENOREC, "Can not move forward"))
-  end
-  (kv, cur.row)
-end
-
-done(cur::Cursor, st::Uint) = cur.done
+# Db methods
 
 function open(file::String, mode::Uint)
   db = Db()
@@ -309,40 +268,8 @@ end
 getindex(db::Db, k::String) = get(db, k)
 setindex!(db::Db, v::String, k::String) = set(db, k, v)
 
-# Jump to the first record. Return false if there is no first record.
-function _start!(cursor::Cursor)
-  f(cursor::Cursor) = kccurjump(cursor.ptr)
-  _move!(cursor, f)
-end
-
-# Move to the next record. Return false if there no next record.
-function _next!(cursor::Cursor)
-  f(cursor::Cursor) = kccurstep(cursor.ptr)
-  _move!(cursor, f)
-end
-
-function _move!(cursor::Cursor, f)
-  ok, code = throw_if(cursor, 0, KCENOREC) do
-    f(cursor)
-  end
-  code != KCENOREC
-end
-
-function _get(cursor::Cursor)
-  pkSize = Cuint[1]
-  pvSize = Cuint[1]
-  pv = CString[1]
-  k = kccurget(cursor.ptr, pkSize, pv, pvSize, 0)
-  if (k == C_NULL) throw(kcexception(cursor)) end
-
-  res = (bytestring(k, pkSize[1]), bytestring(pv[1], pvSize[1]))
-  ok = kcfree(k)
-  if (ok == 0) throw(kcexception(cursor)) end
-
-  res
-end
-
 # Cur
+
 function _start!(cursor::Cur)
   f(cursor::Cur) = kccurjump(cursor.ptr)
   _move!(cursor, f)
@@ -375,8 +302,6 @@ function _record(cursor::Cur)
   res
 end
 
-close(cursor::Cursor) = destroy(cursor)
-
 function path(db::Db)
   _copy_bytestring(kcdbpath(db.ptr))
 end
@@ -390,20 +315,6 @@ function throw_if(f::Function, db::Db, result_invalid, ecode_valid)
       return (result, code)
     else
       message = bytestring(kcdbemsg(db.ptr))
-      throw(KyotoCabinetException(code, message))
-    end
-  end
-  (result, KCESUCCESS)
-end
-
-function throw_if(f::Function, cursor::Cursor, result_invalid, ecode_valid)
-  result = f()
-  if (result == result_invalid)
-    code = kccurecode(cursor.ptr)
-    if (code == ecode_valid)
-      return (result, code)
-    else
-      message = bytestring(kccuremsg(cursor.ptr))
       throw(KyotoCabinetException(code, message))
     end
   end
@@ -433,21 +344,13 @@ function kcexception(db::Db)
   KyotoCabinetException(code, message)
 end
 
-function kcexception(cur::Cursor)
+function kcexception(cur::Cur)
   @assert cur.ptr != C_NULL
 
   code = kccurecode(cur.ptr)
   message = bytestring(kccuremsg(cur.ptr))
 
   KyotoCabinetException(code, message)
-end
-
-function destroy(cursor::Cursor)
-  if cursor.ptr == C_NULL
-    return
-  end
-  kccurdel(cursor.ptr)
-  cursor.ptr = C_NULL
 end
 
 function destroy(cursor::Cur)
