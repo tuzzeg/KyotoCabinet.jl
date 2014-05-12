@@ -38,15 +38,15 @@ type Db <: Associative
   end
 end
 
-type Cur
+type Cursor
   ptr :: Ptr{Void}
   db :: Db # DB should be GCed after
 
-  function Cur()
+  function Cursor()
     new(C_NULL, Db(true))
   end
 
-  function Cur(db::Db)
+  function Cursor(db::Db)
     ptr = kcdbcursor(db.ptr)
     self = new(ptr, db)
     finalizer(self, destroy)
@@ -55,7 +55,7 @@ type Cur
 end
 
 immutable RecordIterator
-  cursor :: Cur
+  cursor :: Cursor
 end
 
 immutable KyotoCabinetException <: Exception
@@ -81,10 +81,10 @@ end
 
 # Iterable interface for Db
 
-const RECORDS_EOF = RecordIterator(Cur())
+const RECORDS_EOF = RecordIterator(Cursor())
 
 function start(db::Db)
-  cur = Cur(db)
+  cur = Cursor(db)
   _start!(cur) ? RecordIterator(cur) : RECORDS_EOF
 end
 
@@ -269,27 +269,27 @@ end
 getindex(db::Db, k::String) = get(db, k)
 setindex!(db::Db, v::String, k::String) = set(db, k, v)
 
-# Cur
+# Cursor
 
-function _start!(cursor::Cur)
-  f(cursor::Cur) = kccurjump(cursor.ptr)
+function _start!(cursor::Cursor)
+  f(cursor::Cursor) = kccurjump(cursor.ptr)
   _move!(cursor, f)
 end
 
 # Move to the next record. Return false if there no next record.
-function _next!(cursor::Cur)
-  f(cursor::Cur) = kccurstep(cursor.ptr)
+function _next!(cursor::Cursor)
+  f(cursor::Cursor) = kccurstep(cursor.ptr)
   _move!(cursor, f)
 end
 
-function _move!(cursor::Cur, f)
+function _move!(cursor::Cursor, f)
   ok, code = throw_if(cursor, 0, KCENOREC) do
     f(cursor)
   end
   code != KCENOREC
 end
 
-function _record(cursor::Cur)
+function _record(cursor::Cursor)
   pkSize = Cuint[1]
   pvSize = Cuint[1]
   pv = CString[1]
@@ -322,7 +322,7 @@ function throw_if(f::Function, db::Db, result_invalid, ecode_valid)
   (result, KCESUCCESS)
 end
 
-function throw_if(f::Function, cursor::Cur, result_invalid, ecode_valid)
+function throw_if(f::Function, cursor::Cursor, result_invalid, ecode_valid)
   result = f()
   if (result == result_invalid)
     code = kccurecode(cursor.ptr)
@@ -345,7 +345,7 @@ function kcexception(db::Db)
   KyotoCabinetException(code, message)
 end
 
-function kcexception(cur::Cur)
+function kcexception(cur::Cursor)
   @assert cur.ptr != C_NULL
 
   code = kccurecode(cur.ptr)
@@ -354,7 +354,7 @@ function kcexception(cur::Cur)
   KyotoCabinetException(code, message)
 end
 
-function destroy(cursor::Cur)
+function destroy(cursor::Cursor)
   if cursor.ptr == C_NULL
     return
   end
