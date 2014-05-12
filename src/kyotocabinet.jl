@@ -26,11 +26,15 @@ export
 type Db <: Associative
   ptr :: Ptr{Void}
 
-  function Db()
-    ptr = kcdbnew()
-    self = new(ptr)
-    # finalizer(self, destroy)
-    self
+  function Db(null=false)
+    if (null)
+      new(C_NULL)
+    else
+      ptr = kcdbnew()
+      self = new(ptr)
+      # finalizer(self, destroy)
+      self
+    end
   end
 end
 
@@ -45,6 +49,26 @@ type Cursor
     # finalizer(self, destroy)
     self
   end
+end
+
+type Cur
+  ptr :: Ptr{Void}
+  db :: Db # DB should be GCed after
+
+  function Cur()
+    new(C_NULL, Db(true))
+  end
+
+  function Cur(db::Db)
+    ptr = kcdbcursor(db.ptr)
+    self = new(ptr, db)
+    finalizer(self, destroy)
+    self
+  end
+end
+
+immutable RecordIterator
+  cursor :: Cur
 end
 
 immutable KyotoCabinetException <: Exception
@@ -78,6 +102,31 @@ function length(cur::Cursor)
     throw(KyotoCabinetException(code, message))
   end
   count
+end
+
+# Iterable interface
+const RECORDS_EOF = RecordIterator(Cur())
+
+function start(db::Db)
+  cur = Cur(db)
+  _start!(cur) ? RecordIterator(cur) : RECORDS_EOF
+end
+
+function next(db::Db, it::RecordIterator)
+  if done(db, it)
+    throw(KyotoCabinetException(KCENOREC, "Can not move forward"))
+  end
+  kv = _record(it.cursor)
+  if (_next!(it.cursor))
+    (kv, it)
+  else
+    destroy(it.cursor)
+    (kv, RECORDS_EOF)
+  end
+end
+
+function done(db::Db, it::RecordIterator)
+  it.cursor.ptr == C_NULL
 end
 
 # Iterable interface
@@ -293,6 +342,39 @@ function _get(cursor::Cursor)
   res
 end
 
+# Cur
+function _start!(cursor::Cur)
+  f(cursor::Cur) = kccurjump(cursor.ptr)
+  _move!(cursor, f)
+end
+
+# Move to the next record. Return false if there no next record.
+function _next!(cursor::Cur)
+  f(cursor::Cur) = kccurstep(cursor.ptr)
+  _move!(cursor, f)
+end
+
+function _move!(cursor::Cur, f)
+  ok, code = throw_if(cursor, 0, KCENOREC) do
+    f(cursor)
+  end
+  code != KCENOREC
+end
+
+function _record(cursor::Cur)
+  pkSize = Cuint[1]
+  pvSize = Cuint[1]
+  pv = CString[1]
+  k = kccurget(cursor.ptr, pkSize, pv, pvSize, 0)
+  if (k == C_NULL) throw(kcexception(cursor)) end
+
+  res = (bytestring(k, pkSize[1]), bytestring(pv[1], pvSize[1]))
+  ok = kcfree(k)
+  if (ok == 0) throw(kcexception(cursor)) end
+
+  res
+end
+
 close(cursor::Cursor) = destroy(cursor)
 
 function path(db::Db)
@@ -328,6 +410,20 @@ function throw_if(f::Function, cursor::Cursor, result_invalid, ecode_valid)
   (result, KCESUCCESS)
 end
 
+function throw_if(f::Function, cursor::Cur, result_invalid, ecode_valid)
+  result = f()
+  if (result == result_invalid)
+    code = kccurecode(cursor.ptr)
+    if (code == ecode_valid)
+      return (result, code)
+    else
+      message = bytestring(kccuremsg(cursor.ptr))
+      throw(KyotoCabinetException(code, message))
+    end
+  end
+  (result, KCESUCCESS)
+end
+
 function kcexception(db::Db)
   @assert db.ptr != C_NULL
 
@@ -347,6 +443,14 @@ function kcexception(cur::Cursor)
 end
 
 function destroy(cursor::Cursor)
+  if cursor.ptr == C_NULL
+    return
+  end
+  kccurdel(cursor.ptr)
+  cursor.ptr = C_NULL
+end
+
+function destroy(cursor::Cur)
   if cursor.ptr == C_NULL
     return
   end

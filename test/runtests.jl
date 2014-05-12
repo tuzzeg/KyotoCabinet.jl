@@ -127,6 +127,44 @@ function test_generator()
   end
 end
 
+function test_iterate_db()
+  test_with(abc_db) do db
+    log = string()
+    for (k, v) = db
+      log = log*" $k:$v"
+    end
+    @assert " a:1 b:2 c:3" == log
+  end
+end
+
+function test_db_iterate_empty()
+  test_with(empty_db) do db
+    s0 = start(db)
+    @assert done(db, s0)
+  end
+end
+
+function test_db_iterate_next()
+  test_with(abc_db) do db
+    s0 = start(db)
+    @assert !done(db, s0)
+
+    rec, s1 = next(db, s0)
+    @assert ("a", "1") == rec
+    @assert !done(db, s1)
+
+    rec, s2 = next(db, s1)
+    @assert ("b", "2") == rec
+    @assert !done(db, s2)
+
+    rec, s3 = next(db, s2)
+    @assert ("c", "3") == rec
+    @assert done(db, s3)
+
+    @test_throws next(db, s3)
+  end
+end
+
 function test_get_set_failures()
   test_with(abc_db) do db
     @test_throws get(db, "z")
@@ -309,6 +347,10 @@ test_iterate()
 test_iterate_nexts_empty()
 test_iterate_nexts()
 test_iterate_nexts_throws()
+
+test_iterate_db()
+test_db_iterate_empty()
+test_db_iterate_next()
 
 test_generator()
 test_get_set_failures()
