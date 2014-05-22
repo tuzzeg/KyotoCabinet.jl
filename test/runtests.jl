@@ -323,6 +323,17 @@ function test_bulkdelete()
   end
 end
 
+function test_set_get_long_string()
+  test_with(abc_db) do db
+    bytes = "08 03 22 96 01" * repeat(" 61", 150)
+    s = bytestring(map(s->parseint(Uint8, s, 16), split(bytes, " ")))
+
+    db["1"] = s
+
+    @assert s == db["1"]
+  end
+end
+
 function empty_db(db::Db)
 end
 
@@ -370,3 +381,5 @@ test_associative_merge()
 test_cas()
 test_bulkset()
 test_bulkdelete()
+
+test_set_get_long_string()
