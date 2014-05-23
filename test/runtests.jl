@@ -3,8 +3,8 @@ using Base.Test
 using kyotocabinet
 using kyotocabinet.c
 
-kyotocabinet.pack(v::ASCIIString) = convert(Array{Uint8}, v)
-kyotocabinet.unpack(T::Type{ASCIIString}, buf::Array{Uint8}) = bytestring(buf)
+kyotocabinet.pack(v::ASCIIString) = convert(Array{Uint8,1}, v)
+kyotocabinet.unpack(T::Type{ASCIIString}, buf::Array{Uint8,1}) = bytestring(buf)
 
 # TODO: add excpetion type to @test_throws
 # See: https://github.com/JuliaLang/julia/commit/6fa50c4183358047c772a508e7a1a44a47c94a95
@@ -326,10 +326,13 @@ function test_bulkdelete()
   end
 end
 
+# kyotocabinet.pack(v::UTF8String) = convert(Array{Uint8}, v)
+# kyotocabinet.unpack(T::Type{UTF8String}, buf::Array{Uint8}) = convert(UTF8String, buf)
+
 function test_set_get_long_string()
-  test_with(abc_db) do db
+  open(Db{ASCIIString, Array{Uint8,1}}(), tempname() * ".kch", KCOWRITER | KCOCREATE) do db
     bytes = "08 03 22 96 01" * repeat(" 61", 150)
-    s = bytestring(map(s->parseint(Uint8, s, 16), split(bytes, " ")))
+    s = map(s->parseint(Uint8, s, 16), split(bytes, " "))
 
     db["1"] = s
 
@@ -337,17 +340,18 @@ function test_set_get_long_string()
   end
 end
 
-function empty_db(db::Db)
+function empty_db(db::Db{ASCIIString,ASCIIString})
 end
 
-function abc_db(db::Db)
+function abc_db(db::Db{ASCIIString,ASCIIString})
   set(db, "a", "1")
   set(db, "b", "2")
   set(db, "c", "3")
 end
 
 function test_with(check::Function, configure::Function)
-  open(Db{ASCIIString, ASCIIString}(), tempname() * ".kch", KCOWRITER | KCOCREATE) do db
+  file = tempname() * ".kch"
+  open(Db{ASCIIString, ASCIIString}(), file, KCOWRITER | KCOCREATE) do db
     configure(db)
     check(db)
   end
@@ -385,4 +389,4 @@ test_cas()
 test_bulkset()
 test_bulkdelete()
 
-#test_set_get_long_string()
+test_set_get_long_string()

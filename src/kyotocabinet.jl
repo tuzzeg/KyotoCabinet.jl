@@ -195,7 +195,7 @@ function getkey{K,V}(db::Db{K,V}, key::K, default::K)
   haskey(db, key) ? key : default
 end
 
-function set{K,V}(db::Db, k::K, v::V)
+function set{K,V}(db::Db{K,V}, k::K, v::V)
   kb = pack(k)
   vb = pack(v)
   ok = kcdbset(db.ptr, kb, length(kb), vb, length(vb))
@@ -212,7 +212,7 @@ function bulkset!{K,V}(db::Db{K,V}, kvs::Dict{K,V}, atomic::Bool)
   c
 end
 
-function bulkdelete!{K,V}(db::Db{K,V}, keys::Array{K}, atomic::Bool)
+function bulkdelete!{K,V}(db::Db{K,V}, keys::Array{K,1}, atomic::Bool)
   keybuf = [pack(k) for k in keys]
   ks = [KCSTR(k, length(k)) for k in keybuf]
   c = kcdbremovebulk(db.ptr, ks, length(ks), atomic ? 1 : 0)
