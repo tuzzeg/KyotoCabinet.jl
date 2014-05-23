@@ -344,9 +344,9 @@ function empty_db(db::Db{ASCIIString,ASCIIString})
 end
 
 function abc_db(db::Db{ASCIIString,ASCIIString})
-  set(db, "a", "1")
-  set(db, "b", "2")
-  set(db, "c", "3")
+  set!(db, "a", "1")
+  set!(db, "b", "2")
+  set!(db, "c", "3")
 end
 
 function test_with(check::Function, configure::Function)

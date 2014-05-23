@@ -21,7 +21,7 @@ export
   Db, KyotoCabinetException,
 
   # Db methods
-  open, close, get, set, path, cas, bulkset!, bulkdelete!,
+  open, close, get, set!, path, cas, bulkset!, bulkdelete!,
   pack, unpack
 
 typealias Bytes Array{Uint8,1}
@@ -195,7 +195,7 @@ function getkey{K,V}(db::Db{K,V}, key::K, default::K)
   haskey(db, key) ? key : default
 end
 
-function set{K,V}(db::Db{K,V}, k::K, v::V)
+function set!{K,V}(db::Db{K,V}, k::K, v::V)
   kb = pack(k)
   vb = pack(v)
   ok = kcdbset(db.ptr, kb, length(kb), vb, length(vb))
@@ -247,7 +247,7 @@ function get!{K,V}(default::Function, db::Db{K,V}, k::K)
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbget(db.ptr, kbuf, length(kbuf), pointer(vsize))
   end
-  code == KCENOREC ? set(db, k, default()) : unpack(V, _wrap(pv, int(vsize[1])))
+  code == KCENOREC ? set!(db, k, default()) : unpack(V, _wrap(pv, int(vsize[1])))
 end
 
 function delete!{K,V}(db::Db{K,V}, k::K)
@@ -276,7 +276,7 @@ end
 
 # Indexable collection
 getindex(db::Db, k) = get(db, k)
-setindex!(db::Db, v, k) = set(db, k, v)
+setindex!(db::Db, v, k) = set!(db, k, v)
 
 # Cursor
 
