@@ -21,9 +21,12 @@ export
   Db, KyotoCabinetException,
 
   # Db methods
-  open, close, get, set, path, cas, bulkset!, bulkdelete!
+  open, close, get, set, path, cas, bulkset!, bulkdelete!,
+  pack, unpack
 
-type Db <: Associative
+typealias Bytes Array{Uint8,1}
+
+type Db{K,V} <: Associative{K,V}
   ptr :: Ptr{Void}
 
   function Db(null=false)
@@ -38,30 +41,35 @@ type Db <: Associative
   end
 end
 
-type Cursor
+type Cursor{K,V}
   ptr :: Ptr{Void}
-  db :: Db # DB should be GCed after
+  db :: Db{K,V} # to prevent DB GCed before cursor
 
   function Cursor()
-    new(C_NULL, Db(true))
+    new(C_NULL, Db{K,V}(true))
   end
 
-  function Cursor(db::Db)
+  function Cursor(db::Db{K,V})
     ptr = kcdbcursor(db.ptr)
-    self = new(ptr, db)
+    self = Cursor{K,V}()
+    self.ptr = ptr
+    self.db = db
     finalizer(self, destroy)
     self
   end
 end
 
-immutable RecordIterator
-  cursor :: Cursor
+immutable RecordIterator{K,V}
+  cursor :: Cursor{K,V}
 end
 
 immutable KyotoCabinetException <: Exception
   code :: Int32
   message :: String
 end
+
+pack(v::Bytes) = identity
+unpack(T::Type{Bytes}, s::Bytes) = identity
 
 # Generic collections
 
@@ -81,14 +89,12 @@ end
 
 # Iterable interface for Db
 
-const RECORDS_EOF = RecordIterator(Cursor())
-
-function start(db::Db)
-  cur = Cursor(db)
-  _start!(cur) ? RecordIterator(cur) : RECORDS_EOF
+function start{K,V}(db::Db{K,V})
+  cur = Cursor{K,V}(db)
+  _start!(cur) ? RecordIterator{K,V}(cur) : RecordIterator{K,V}(Cursor{K,V}())
 end
 
-function next(db::Db, it::RecordIterator)
+function next{K,V}(db::Db{K,V}, it::RecordIterator{K,V})
   if done(db, it)
     throw(KyotoCabinetException(KCENOREC, "Can not move forward"))
   end
@@ -97,7 +103,7 @@ function next(db::Db, it::RecordIterator)
     (kv, it)
   else
     destroy(it.cursor)
-    (kv, RECORDS_EOF)
+    (kv, RecordIterator{K,V}(Cursor{K,V}()))
   end
 end
 
@@ -107,15 +113,17 @@ end
 
 # Db methods
 
-function open(file::String, mode::Uint)
-  db = Db()
+open(file, mode) = open(Db{Bytes,Bytes}(), file, mode)
+open(f, file, mode) = open(f, Db{Bytes,Bytes}(), file, mode)
+
+function open{K,V}(db::Db{K,V}, file::String, mode::Uint)
   ok = kcdbopen(db.ptr, bytestring(file), mode)
   if (ok == 0) throw(kcexception(db)) end
   db
 end
 
-function open(f::Function, file::String, mode::Uint)
-  db = open(file, mode)
+function open{K,V}(f::Function, db::Db{K,V}, file::String, mode::Uint)
+  db = open(db, file, mode)
   try
     f(db)
   finally
@@ -138,28 +146,31 @@ function destroy(db::Db)
   db.ptr = C_NULL
 end
 
-function cas(db::Db, key::String, old::String, new::String)
-  kbuf = bytestring(key)
-  ovbuf = bytestring(old)
-  nvbuf = bytestring(new)
+function cas{K,V}(db::Db{K,V}, key::K, old::V, new::V)
+  kbuf = pack(key)
+  ovbuf = pack(old)
+  nvbuf = pack(new)
   ok, code = throw_if(db, 0, KCELOGIC) do
     kcdbcas(db.ptr, kbuf, length(kbuf), ovbuf, length(ovbuf), nvbuf, length(nvbuf))
   end
   code == KCESUCCESS
 end
 
-function cas(db::Db, key::String, old::(), new::String)
-  kbuf = bytestring(key)
-  nvbuf = bytestring(new)
+# To resolve conflict with V=nothing
+cas{K}(db::Db{K,Nothing}, key::K, old::Nothing, new::Nothing) = KCESUCCESS
+
+function cas{K,V}(db::Db{K,V}, key::K, old::Nothing, new::V)
+  kbuf = pack(key)
+  nvbuf = pack(new)
   ok, code = throw_if(db, 0, KCELOGIC) do
     kcdbcas(db.ptr, kbuf, length(kbuf), C_NULL, 0, nvbuf, length(nvbuf))
   end
   code == KCESUCCESS
 end
 
-function cas(db::Db, key::String, old::String, new::())
-  kbuf = bytestring(key)
-  ovbuf = bytestring(old)
+function cas{K,V}(db::Db{K,V}, key::K, old::V, new::Nothing)
+  kbuf = pack(key)
+  ovbuf = pack(old)
   ok, code = throw_if(db, 0, KCELOGIC) do
     kcdbcas(db.ptr, kbuf, length(kbuf), ovbuf, length(ovbuf), C_NULL, 0)
   end
@@ -167,107 +178,101 @@ function cas(db::Db, key::String, old::String, new::())
 end
 
 # Dict methods
-function haskey(db::Db, k::String)
-  kbuf = bytestring(k)
+function haskey{K,V}(db::Db{K,V}, k::K)
+  kbuf = pack(k)
   v, code = throw_if(db, -1, KCENOREC) do
     kcdbcheck(db.ptr, kbuf, length(kbuf))
   end
   code != KCENOREC
 end
 
-function getkey(db::Db, key::String, default::String)
+function getkey{K,V}(db::Db{K,V}, key::K, default::K)
   haskey(db, key) ? key : default
 end
 
-function set(db::Db, k::String, v::String)
-  kb = bytestring(k)
-  vb = bytestring(v)
+function set{K,V}(db::Db, k::K, v::V)
+  kb = pack(k)
+  vb = pack(v)
   ok = kcdbset(db.ptr, kb, length(kb), vb, length(vb))
   if (ok == 0) throw(kcexception(db)) end
   v
 end
 
-function bulkset!{T<:String}(db::Db, kvs::Dict{T,T}, atomic::Bool)
+function bulkset!{K,V}(db::Db{K,V}, kvs::Dict{K,V}, atomic::Bool)
   # make a copy to prevent GC
-  recbuf = [(bytestring(k), bytestring(v)) for (k, v) in kvs]
+  recbuf = [(pack(k), pack(v)) for (k, v) in kvs]
   recs = [KCREC(KCSTR(k, length(k)), KCSTR(v, length(v))) for (k, v) in recbuf]
   c = kcdbsetbulk(db.ptr, recs, length(recs), atomic ? 1 : 0)
   if (c == -1) throw(kcexception(db)) end
   c
 end
 
-function bulkdelete!{T<:String}(db::Db, keys::Array{T}, atomic::Bool)
-  keybuf = [bytestring(k) for k in keys]
+function bulkdelete!{K,V}(db::Db{K,V}, keys::Array{K}, atomic::Bool)
+  keybuf = [pack(k) for k in keys]
   ks = [KCSTR(k, length(k)) for k in keybuf]
   c = kcdbremovebulk(db.ptr, ks, length(ks), atomic ? 1 : 0)
   if (c == -1) throw(kcexception(db)) end
   c
 end
 
-function get(db::Db, k::String)
-  kb = bytestring(k)
+function get{K,V}(db::Db{K,V}, k::K)
+  kb = pack(k)
   vsize = Cuint[1]
   pv = kcdbget(db.ptr, kb, length(kb), vsize)
   if (pv == C_NULL) throw(kcexception(db)) end
-  _copy_bytestring(pv, vsize[1])
+  vb = _wrap(pv, int(vsize[1]))
+  unpack(V, vb)
 end
 
-function get(db::Db, k::String, default::String)
+get(db::Db, k, default) = get(()->default, db, k)
+
+function get{K,V}(default::Function, db::Db{K,V}, k::K)
   kbuf = bytestring(k)
   vsize = Csize_t[1]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbget(db.ptr, kbuf, length(kbuf), pointer(vsize))
   end
-  code == KCENOREC ? default : _copy_bytestring(pv, vsize[1])
+  code == KCENOREC ? default() : unpack(V, _wrap(pv, int(vsize[1])))
 end
 
-function get(default::Function, db::Db, k::String)
-  kbuf = bytestring(k)
+get!(db::Db, k, default) = get!(()->default, db, k)
+
+function get!{K,V}(default::Function, db::Db{K,V}, k::K)
+  kbuf = pack(k)
   vsize = Csize_t[1]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbget(db.ptr, kbuf, length(kbuf), pointer(vsize))
   end
-  code == KCENOREC ? default() : bytestring(pv, vsize[1])
+  code == KCENOREC ? set(db, k, default()) : unpack(V, _wrap(pv, int(vsize[1])))
 end
 
-get!(db::Db, k::String, default::String) = get!(()->default, db, k)
-
-function get!(default::Function, db::Db, k::String)
-  kbuf = bytestring(k)
-  vsize = Csize_t[1]
-  pv, code = throw_if(db, C_NULL, KCENOREC) do
-    kcdbget(db.ptr, kbuf, length(kbuf), pointer(vsize))
-  end
-  code == KCENOREC ? set(db, k, default()) : bytestring(pv, vsize[1])
-end
-
-function delete!(db::Db, k::String)
-  kbuf = bytestring(k)
+function delete!{K,V}(db::Db{K,V}, k::K)
+  kbuf = pack(k)
   ok = kcdbremove(db.ptr, kbuf, length(kbuf))
   if (ok == 0) throw(kcexception(db)) end
   db
 end
 
-function pop!(db::Db, k::String)
-  kb = bytestring(k)
+function pop!{K,V}(db::Db{K,V}, k::K)
+  kb = pack(k)
   vsize = Cuint[1]
   pv = kcdbseize(db.ptr, kb, length(kb), vsize)
   if (pv == C_NULL) throw(kcexception(db)) end
-  _copy_bytestring(pv, vsize[1])
+  unpack(V, _wrap(pv, int(vsize[1])))
 end
 
-function pop!(db::Db, k::String, default::String)
-  kbuf = bytestring(k)
+function pop!{K,V}(db::Db{K,V}, k::K, default::V)
+  kbuf = pack(k)
   vsize = Csize_t[1]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbseize(db.ptr, kbuf, length(kbuf), pointer(vsize))
   end
-  code == KCENOREC ? default : _copy_bytestring(pv, vsize[1])
+  code == KCENOREC ? default : unpack(V, _wrap(pv, int(vsize[1])))
 end
 
 # Indexable collection
-getindex(db::Db, k::String) = get(db, k)
-setindex!(db::Db, v::String, k::String) = set(db, k, v)
+getindex(db::Db, k) = get(db, k)
+setindex!(db::Db, v, k) = set(db, k, v)
 
 # Cursor
 
@@ -304,7 +309,11 @@ function _record(cursor::Cursor)
 end
 
 function path(db::Db)
-  _copy_bytestring(kcdbpath(db.ptr))
+  p = kcdbpath(db.ptr)
+  v = bytestring(p)
+  ok = kcfree(p)
+  if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
+  v
 end
 
 # KyotoCabinet exceptions
@@ -362,18 +371,12 @@ function destroy(cursor::Cursor)
   cursor.ptr = C_NULL
 end
 
-function _copy_bytestring(p, size)
-  v = bytestring(p, size)
+# TODO: optimize unpack(_wrap(...))
+function _wrap(p::Ptr{Uint8}, length)
+  a = copy(pointer_to_array(p, length))
   ok = kcfree(p)
   if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
-  v
-end
-
-function _copy_bytestring(p)
-  v = bytestring(p)
-  ok = kcfree(p)
-  if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
-  v
+  a
 end
 
 end # module kyotocabinet
