@@ -74,7 +74,7 @@ pack(v::Bytes) = v
 # Unpack byte array (Array{Uint8,1}) into value of type T.
 # buf is not GCed and will be freed right after unpack
 # use copy() to own
-unpack(T::Type{Bytes}, buf::Bytes) = buf
+unpack(T::Type{Bytes}, buf::Bytes) = copy(buf)
 
 # Generic collections
 
@@ -225,7 +225,7 @@ function get{K,V}(db::Db{K,V}, k::K)
   vsize = Cuint[1]
   pv = kcdbget(db.ptr, kb, length(kb), vsize)
   if (pv == C_NULL) throw(kcexception(db)) end
-  unpack(V, _wrap(pv, int(vsize[1])))
+  _unpack(V, pv, int(vsize[1]))
 end
 
 get(db::Db, k, default) = get(()->default, db, k)
@@ -236,7 +236,7 @@ function get{K,V}(default::Function, db::Db{K,V}, k::K)
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbget(db.ptr, kbuf, length(kbuf), pointer(vsize))
   end
-  code == KCENOREC ? default() : unpack(V, _wrap(pv, int(vsize[1])))
+  code == KCENOREC ? default() : _unpack(V, pv, int(vsize[1]))
 end
 
 get!(db::Db, k, default) = get!(()->default, db, k)
@@ -247,7 +247,7 @@ function get!{K,V}(default::Function, db::Db{K,V}, k::K)
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbget(db.ptr, kbuf, length(kbuf), pointer(vsize))
   end
-  code == KCENOREC ? set!(db, k, default()) : unpack(V, _wrap(pv, int(vsize[1])))
+  code == KCENOREC ? set!(db, k, default()) : _unpack(V, pv, int(vsize[1]))
 end
 
 function delete!{K,V}(db::Db{K,V}, k::K)
@@ -262,7 +262,7 @@ function pop!{K,V}(db::Db{K,V}, k::K)
   vsize = Cuint[1]
   pv = kcdbseize(db.ptr, kb, length(kb), vsize)
   if (pv == C_NULL) throw(kcexception(db)) end
-  unpack(V, _wrap(pv, int(vsize[1])))
+  _unpack(V, pv, int(vsize[1]))
 end
 
 function pop!{K,V}(db::Db{K,V}, k::K, default::V)
@@ -271,7 +271,7 @@ function pop!{K,V}(db::Db{K,V}, k::K, default::V)
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbseize(db.ptr, kbuf, length(kbuf), pointer(vsize))
   end
-  code == KCENOREC ? default : unpack(V, _wrap(pv, int(vsize[1])))
+  code == KCENOREC ? default : _unpack(V, pv, int(vsize[1]))
 end
 
 # Indexable collection
@@ -375,12 +375,11 @@ function destroy(cursor::Cursor)
   cursor.ptr = C_NULL
 end
 
-# TODO: optimize unpack(_wrap(...))
-function _wrap(p::Ptr{Uint8}, length)
-  a = copy(pointer_to_array(p, length))
+function _unpack(T, p::Ptr{Uint8}, length)
+  v = unpack(T, pointer_to_array(p, length))
   ok = kcfree(p)
   if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
-  a
+  v
 end
 
 end # module kyotocabinet

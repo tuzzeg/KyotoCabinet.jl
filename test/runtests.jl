@@ -4,7 +4,7 @@ using kyotocabinet
 using kyotocabinet.c
 
 kyotocabinet.pack(v::ASCIIString) = convert(Array{Uint8,1}, v)
-kyotocabinet.unpack(T::Type{ASCIIString}, buf::Array{Uint8,1}) = bytestring(buf)
+kyotocabinet.unpack(T::Type{ASCIIString}, buf::Array{Uint8,1}) = bytestring(copy(buf))
 
 # TODO: add excpetion type to @test_throws
 # See: https://github.com/JuliaLang/julia/commit/6fa50c4183358047c772a508e7a1a44a47c94a95
@@ -325,9 +325,6 @@ function test_bulkdelete()
     @assert 0 == bulkdelete!(db, ["b", "c"], false)
   end
 end
-
-# kyotocabinet.pack(v::UTF8String) = convert(Array{Uint8}, v)
-# kyotocabinet.unpack(T::Type{UTF8String}, buf::Array{Uint8}) = convert(UTF8String, buf)
 
 function test_set_get_long_string()
   open(Db{ASCIIString, Array{Uint8,1}}(), tempname() * ".kch", KCOWRITER | KCOCREATE) do db
