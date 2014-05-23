@@ -68,8 +68,13 @@ immutable KyotoCabinetException <: Exception
   message :: String
 end
 
-pack(v::Bytes) = identity
-unpack(T::Type{Bytes}, s::Bytes) = identity
+# Pack value into byte array (Array{Uint8,1})
+pack(v::Bytes) = v
+
+# Unpack byte array (Array{Uint8,1}) into value of type T.
+# buf is not GCed and will be freed right after unpack
+# use copy() to own
+unpack(T::Type{Bytes}, buf::Bytes) = buf
 
 # Generic collections
 
@@ -220,8 +225,7 @@ function get{K,V}(db::Db{K,V}, k::K)
   vsize = Cuint[1]
   pv = kcdbget(db.ptr, kb, length(kb), vsize)
   if (pv == C_NULL) throw(kcexception(db)) end
-  vb = _wrap(pv, int(vsize[1]))
-  unpack(V, vb)
+  unpack(V, _wrap(pv, int(vsize[1])))
 end
 
 get(db::Db, k, default) = get(()->default, db, k)
