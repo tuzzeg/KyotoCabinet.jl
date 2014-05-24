@@ -20,6 +20,9 @@ export
   # Types
   Db, KyotoCabinetException,
 
+  # Open modes
+  KCOREADER, KCOWRITER, KCOCREATE, KCOTRUNCATE, KCOAUTOTRAN, KCOAUTOSYNC, KCONOLOCK, KCOTRYLOCK, KCONOREPAIR,
+
   # Db methods
   open, close, get, set!, path, cas, bulkset!, bulkdelete!,
   pack, unpack
@@ -231,7 +234,7 @@ end
 get(db::Db, k, default) = get(()->default, db, k)
 
 function get{K,V}(default::Function, db::Db{K,V}, k::K)
-  kbuf = bytestring(k)
+  kbuf = pack(k)
   vsize = Csize_t[1]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbget(db.ptr, kbuf, length(kbuf), pointer(vsize))
@@ -298,15 +301,15 @@ function _move!(cursor::Cursor, f)
   code != KCENOREC
 end
 
-function _record(cursor::Cursor)
+function _record{K,V}(cursor::Cursor{K,V})
   pkSize = Cuint[1]
   pvSize = Cuint[1]
   pv = CString[1]
-  k = kccurget(cursor.ptr, pkSize, pv, pvSize, 0)
-  if (k == C_NULL) throw(kcexception(cursor)) end
+  pk = kccurget(cursor.ptr, pkSize, pv, pvSize, 0)
+  if (pk == C_NULL) throw(kcexception(cursor)) end
 
-  res = (bytestring(k, pkSize[1]), bytestring(pv[1], pvSize[1]))
-  ok = kcfree(k)
+  res = (_unpack(K, pk, int(pkSize[1])), _unpack(V, pv[1], int(pvSize[1])))
+  ok = kcfree(pk)
   if (ok == 0) throw(kcexception(cursor)) end
 
   res
@@ -376,7 +379,8 @@ function destroy(cursor::Cursor)
 end
 
 function _unpack(T, p::Ptr{Uint8}, length)
-  v = unpack(T, pointer_to_array(p, length))
+  a = pointer_to_array(p, length)
+  v = unpack(T, copy(pointer_to_array(p, length)))
   ok = kcfree(p)
   if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
   v

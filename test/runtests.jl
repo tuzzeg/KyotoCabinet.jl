@@ -4,7 +4,7 @@ using kyotocabinet
 using kyotocabinet.c
 
 kyotocabinet.pack(v::ASCIIString) = convert(Array{Uint8,1}, v)
-kyotocabinet.unpack(T::Type{ASCIIString}, buf::Array{Uint8,1}) = bytestring(copy(buf))
+kyotocabinet.unpack(T::Type{ASCIIString}, buf::Array{Uint8,1}) = bytestring(buf)
 
 # TODO: add excpetion type to @test_throws
 # See: https://github.com/JuliaLang/julia/commit/6fa50c4183358047c772a508e7a1a44a47c94a95
