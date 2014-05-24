@@ -21,13 +21,12 @@ kyotocabinet.unpack(T::Type{ASCIIString}, buf::Array{Uint8,1}) = bytestring(buf)
 
 function kyotocabinet.pack(k::K)
   io = IOBuffer()
-  write(io, k.x)
+  write(io, int32(k.x))
   takebuf_array(io)
 end
 function kyotocabinet.unpack(T::Type{K}, buf::Array{Uint8,1})
-  println("T=$T buf=$buf")
   io = IOBuffer(buf)
-  x = read(io, Int)
+  x = read(io, Int32)
   K(x)
 end
 
@@ -58,6 +57,25 @@ function test_get_set()
   end
 end
 
+function test_iter()
+  file = tempdb()
+  open(Db{K, V}(), file, KCOWRITER | KCOCREATE) do db
+    db[K(1)] = V(1, "a")
+    db[K(1999999999)] = V(2, repeat("b",100))
+  end
+  open(Db{K, V}(), file, KCOREADER) do db
+    s0 = start(db)
+    kv, s0 = next(db, s0)
+    @assert K(1) == kv[1]
+    @assert V(1, "a") == kv[2]
+
+    kv, s0 = next(db, s0)
+    @assert K(1999999999) == kv[1]
+    @assert V(2, repeat("b", 100)) == kv[2]
+  end
+end
+
 tempdb() = tempname() * ".kch"
 
-test_get_set()
+# test_get_set()
+test_iter()

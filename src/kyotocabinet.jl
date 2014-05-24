@@ -159,7 +159,7 @@ function cas{K,V}(db::Db{K,V}, key::K, old::V, new::V)
   ovbuf = pack(old)
   nvbuf = pack(new)
   ok, code = throw_if(db, 0, KCELOGIC) do
-    kcdbcas(db.ptr, kbuf, length(kbuf), ovbuf, length(ovbuf), nvbuf, length(nvbuf))
+    kcdbcas(db.ptr, pointer(kbuf), length(kbuf), pointer(ovbuf), length(ovbuf), pointer(nvbuf), length(nvbuf))
   end
   code == KCESUCCESS
 end
@@ -171,7 +171,7 @@ function cas{K,V}(db::Db{K,V}, key::K, old::Nothing, new::V)
   kbuf = pack(key)
   nvbuf = pack(new)
   ok, code = throw_if(db, 0, KCELOGIC) do
-    kcdbcas(db.ptr, kbuf, length(kbuf), C_NULL, 0, nvbuf, length(nvbuf))
+    kcdbcas(db.ptr, pointer(kbuf), length(kbuf), C_NULL, 0, pointer(nvbuf), length(nvbuf))
   end
   code == KCESUCCESS
 end
@@ -180,7 +180,7 @@ function cas{K,V}(db::Db{K,V}, key::K, old::V, new::Nothing)
   kbuf = pack(key)
   ovbuf = pack(old)
   ok, code = throw_if(db, 0, KCELOGIC) do
-    kcdbcas(db.ptr, kbuf, length(kbuf), ovbuf, length(ovbuf), C_NULL, 0)
+    kcdbcas(db.ptr, pointer(kbuf), length(kbuf), pointer(ovbuf), length(ovbuf), C_NULL, 0)
   end
   code == KCESUCCESS
 end
@@ -189,7 +189,7 @@ end
 function haskey{K,V}(db::Db{K,V}, k::K)
   kbuf = pack(k)
   v, code = throw_if(db, -1, KCENOREC) do
-    kcdbcheck(db.ptr, kbuf, length(kbuf))
+    kcdbcheck(db.ptr, pointer(kbuf), length(kbuf))
   end
   code != KCENOREC
 end
@@ -199,9 +199,9 @@ function getkey{K,V}(db::Db{K,V}, key::K, default::K)
 end
 
 function set!{K,V}(db::Db{K,V}, k::K, v::V)
-  kb = pack(k)
-  vb = pack(v)
-  ok = kcdbset(db.ptr, kb, length(kb), vb, length(vb))
+  kbuf = pack(k)
+  vbuf = pack(v)
+  ok = kcdbset(db.ptr, pointer(kbuf), length(kbuf), pointer(vbuf), length(vbuf))
   if (ok == 0) throw(kcexception(db)) end
   v
 end
@@ -224,9 +224,9 @@ function bulkdelete!{K,V}(db::Db{K,V}, keys::Array{K,1}, atomic::Bool)
 end
 
 function get{K,V}(db::Db{K,V}, k::K)
-  kb = pack(k)
-  vsize = Cuint[1]
-  pv = kcdbget(db.ptr, kb, length(kb), vsize)
+  kbuf = pack(k)
+  vsize = Csize_t[0]
+  pv = kcdbget(db.ptr, pointer(kbuf), length(kbuf), vsize)
   if (pv == C_NULL) throw(kcexception(db)) end
   _unpack(V, pv, int(vsize[1]))
 end
@@ -235,9 +235,9 @@ get(db::Db, k, default) = get(()->default, db, k)
 
 function get{K,V}(default::Function, db::Db{K,V}, k::K)
   kbuf = pack(k)
-  vsize = Csize_t[1]
+  vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
-    kcdbget(db.ptr, kbuf, length(kbuf), pointer(vsize))
+    kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
   end
   code == KCENOREC ? default() : _unpack(V, pv, int(vsize[1]))
 end
@@ -246,33 +246,33 @@ get!(db::Db, k, default) = get!(()->default, db, k)
 
 function get!{K,V}(default::Function, db::Db{K,V}, k::K)
   kbuf = pack(k)
-  vsize = Csize_t[1]
+  vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
-    kcdbget(db.ptr, kbuf, length(kbuf), pointer(vsize))
+    kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
   end
   code == KCENOREC ? set!(db, k, default()) : _unpack(V, pv, int(vsize[1]))
 end
 
 function delete!{K,V}(db::Db{K,V}, k::K)
   kbuf = pack(k)
-  ok = kcdbremove(db.ptr, kbuf, length(kbuf))
+  ok = kcdbremove(db.ptr, pointer(kbuf), length(kbuf))
   if (ok == 0) throw(kcexception(db)) end
   db
 end
 
 function pop!{K,V}(db::Db{K,V}, k::K)
-  kb = pack(k)
-  vsize = Cuint[1]
-  pv = kcdbseize(db.ptr, kb, length(kb), vsize)
+  kbuf = pack(k)
+  vsize = Csize_t[0]
+  pv = kcdbseize(db.ptr, pointer(kbuf), length(kbuf), vsize)
   if (pv == C_NULL) throw(kcexception(db)) end
   _unpack(V, pv, int(vsize[1]))
 end
 
 function pop!{K,V}(db::Db{K,V}, k::K, default::V)
   kbuf = pack(k)
-  vsize = Csize_t[1]
+  vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
-    kcdbseize(db.ptr, kbuf, length(kbuf), pointer(vsize))
+    kcdbseize(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
   end
   code == KCENOREC ? default : _unpack(V, pv, int(vsize[1]))
 end
@@ -302,13 +302,13 @@ function _move!(cursor::Cursor, f)
 end
 
 function _record{K,V}(cursor::Cursor{K,V})
-  pkSize = Cuint[1]
-  pvSize = Cuint[1]
-  pv = CString[1]
-  pk = kccurget(cursor.ptr, pkSize, pv, pvSize, 0)
+  pkSize = Csize_t[0]
+  pvSize = Csize_t[0]
+  pv = CString[0]
+  pk = kccurget(cursor.ptr, pointer(pkSize), pointer(pv), pointer(pvSize), 0)
   if (pk == C_NULL) throw(kcexception(cursor)) end
 
-  res = (_unpack(K, pk, int(pkSize[1])), _unpack(V, pv[1], int(pvSize[1])))
+  res = (_unpack(K, pk, int(pkSize[1]), false), _unpack(V, pv[1], int(pvSize[1]), false))
   ok = kcfree(pk)
   if (ok == 0) throw(kcexception(cursor)) end
 
@@ -378,11 +378,12 @@ function destroy(cursor::Cursor)
   cursor.ptr = C_NULL
 end
 
-function _unpack(T, p::Ptr{Uint8}, length)
-  a = pointer_to_array(p, length)
-  v = unpack(T, copy(pointer_to_array(p, length)))
-  ok = kcfree(p)
-  if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
+function _unpack(T, p::Ptr{Uint8}, length, free=true)
+  v = unpack(T, pointer_to_array(p, length))
+  if free
+    ok = kcfree(p)
+    if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
+  end
   v
 end
 
