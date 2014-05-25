@@ -27,7 +27,7 @@ end
 function kyotocabinet.unpack(T::Type{K}, buf::Array{Uint8,1})
   io = IOBuffer(buf)
   x = read(io, Int32)
-  K(x)
+  K(int(x))
 end
 
 function kyotocabinet.pack(v::V)
@@ -42,7 +42,7 @@ function kyotocabinet.unpack(T::Type{V}, buf::Array{Uint8,1})
   a = read(io, Int32)
   l = read(io, Int32)
   b = bytestring(read(io, Uint8, l))
-  V(a, b)
+  V(int(a), b)
 end
 
 function test_get_set()
