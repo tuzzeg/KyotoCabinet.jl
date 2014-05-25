@@ -47,11 +47,11 @@ end
 
 function test_get_set()
   file = tempdb()
-  open(Db{K, V}(), file, KCOWRITER | KCOCREATE) do db
+  open(Db{K, V}(), file, "w+") do db
     db[K(1)] = V(1, "a")
     db[K(1999999999)] = V(2, repeat("b",100))
   end
-  open(Db{K, V}(), file, KCOREADER) do db
+  open(Db{K, V}(), file, "r") do db
     @assert V(1, "a") == db[K(1)]
     @assert V(2, repeat("b",100)) == db[K(1999999999)]
   end
@@ -59,11 +59,11 @@ end
 
 function test_iter()
   file = tempdb()
-  open(Db{K, V}(), file, KCOWRITER | KCOCREATE) do db
+  open(Db{K, V}(), file, "w+") do db
     db[K(1)] = V(1, "a")
     db[K(1999999999)] = V(2, repeat("b",100))
   end
-  open(Db{K, V}(), file, KCOREADER) do db
+  open(Db{K, V}(), file, "r") do db
     s0 = start(db)
     kv, s0 = next(db, s0)
     @assert K(1) == kv[1]

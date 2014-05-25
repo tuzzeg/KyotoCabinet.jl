@@ -20,9 +20,6 @@ export
   # Types
   Db, KyotoCabinetException,
 
-  # Open modes
-  KCOREADER, KCOWRITER, KCOCREATE, KCOTRUNCATE, KCOAUTOTRAN, KCOAUTOSYNC, KCONOLOCK, KCOTRYLOCK, KCONOREPAIR,
-
   # Db methods
   open, close, get, set!, path, cas, bulkset!, bulkdelete!,
   pack, unpack
@@ -123,6 +120,14 @@ end
 
 open(file, mode) = open(Db{Bytes,Bytes}(), file, mode)
 open(f, file, mode) = open(f, Db{Bytes,Bytes}(), file, mode)
+
+function open{K,V}(db::Db{K,V}, file::String, mode::String)
+  open(db, file, _mode(mode))
+end
+
+function open{K,V}(f::Function, db::Db{K,V}, file::String, mode::String)
+  open(f, db, file, _mode(mode))
+end
 
 function open{K,V}(db::Db{K,V}, file::String, mode::Uint)
   ok = kcdbopen(db.ptr, bytestring(file), mode)
@@ -386,5 +391,12 @@ function _unpack(T, p::Ptr{Uint8}, length, free=true)
   end
   v
 end
+
+_modes = {
+  "r" => KCOREADER,
+  "w" => KCOWRITER,
+  "w+" => KCOWRITER | KCOCREATE
+}
+_mode(mode::String) = get(_modes, mode, KCOREADER)
 
 end # module kyotocabinet
