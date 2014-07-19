@@ -1,12 +1,13 @@
 using Base.Test
 
+require("src/kyotocabinet.jl")
 using kyotocabinet
 using kyotocabinet.c
 
 kyotocabinet.pack(v::ASCIIString) = convert(Array{Uint8,1}, v)
 kyotocabinet.unpack(T::Type{ASCIIString}, buf::Array{Uint8,1}) = bytestring(buf)
 
-# TODO: add excpetion type to @test_throws
+# TODO: add exception type to @test_throws
 # See: https://github.com/JuliaLang/julia/commit/6fa50c4183358047c772a508e7a1a44a47c94a95
 
 # TODO
@@ -264,7 +265,7 @@ end
 
 function test_path()
   file = tempname() * ".kch"
-  open(file, KCOWRITER | KCOCREATE) do db
+  open(Db{Bytes, Bytes}(), file, KCOWRITER | KCOCREATE) do db
     @assert file == path(db)
   end
 end
@@ -327,7 +328,7 @@ function test_bulkdelete()
 end
 
 function test_set_get_long_string()
-  open(Db{ASCIIString, Array{Uint8,1}}(), tempname() * ".kch", KCOWRITER | KCOCREATE) do db
+  open(Db{ASCIIString, Bytes}(), tempname() * ".kch", KCOWRITER | KCOCREATE) do db
     bytes = "08 03 22 96 01" * repeat(" 61", 150)
     s = map(s->parseint(Uint8, s, 16), split(bytes, " "))
 

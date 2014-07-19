@@ -2,6 +2,9 @@ module kyotocabinet
 
 include("c.jl")
 
+# Basic methods
+import Base: open, close
+
 # Iteration
 import Base: start, next, done
 
@@ -18,10 +21,10 @@ using .c
 
 export
   # Types
-  Db, KyotoCabinetException,
+  Bytes, Db, KyotoCabinetException,
 
   # Db methods
-  open, close, get, set!, path, cas, bulkset!, bulkdelete!,
+  get, set!, path, cas, bulkset!, bulkdelete!,
   pack, unpack
 
 typealias Bytes Array{Uint8,1}
@@ -117,9 +120,6 @@ function done(db::Db, it::RecordIterator)
 end
 
 # Db methods
-
-open(file, mode) = open(Db{Bytes,Bytes}(), file, mode)
-open(f, file, mode) = open(f, Db{Bytes,Bytes}(), file, mode)
 
 function open{K,V}(db::Db{K,V}, file::String, mode::String)
   open(db, file, _mode(mode))
