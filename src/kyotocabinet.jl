@@ -231,7 +231,7 @@ end
 function get{K,V}(db::Db{K,V}, k::K)
   kbuf = pack(k)
   vsize = Csize_t[0]
-  pv = kcdbget(db.ptr, pointer(kbuf), length(kbuf), vsize)
+  pv = kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
   if (pv == C_NULL) throw(kcexception(db)) end
   _unpack(V, pv, int(vsize[1]))
 end
@@ -268,7 +268,7 @@ end
 function pop!{K,V}(db::Db{K,V}, k::K)
   kbuf = pack(k)
   vsize = Csize_t[0]
-  pv = kcdbseize(db.ptr, pointer(kbuf), length(kbuf), vsize)
+  pv = kcdbseize(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
   if (pv == C_NULL) throw(kcexception(db)) end
   _unpack(V, pv, int(vsize[1]))
 end
