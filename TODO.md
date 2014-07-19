@@ -1,3 +1,7 @@
+# 2014-06-10
+- Base open, close
+
+# 2014-05-06
 - Iterator methods for cursor
 - Tests
 
