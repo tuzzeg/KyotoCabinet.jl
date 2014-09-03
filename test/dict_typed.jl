@@ -3,7 +3,7 @@ using Base.Test
 import Base: ==
 
 require("src/kyotocabinet.jl")
-using kyotocabinet
+using KyotoCabinet
 
 immutable K
   x::Int
@@ -17,28 +17,28 @@ end
 ==(x::K, y::K) = x.x == y.x
 ==(x::V, y::V) = (x.a == y.a) && (x.b == y.b)
 
-kyotocabinet.pack(v::ASCIIString) = convert(Array{Uint8,1}, v)
-kyotocabinet.unpack(T::Type{ASCIIString}, buf::Array{Uint8,1}) = bytestring(buf)
+KyotoCabinet.pack(v::ASCIIString) = convert(Array{Uint8,1}, v)
+KyotoCabinet.unpack(T::Type{ASCIIString}, buf::Array{Uint8,1}) = bytestring(buf)
 
-function kyotocabinet.pack(k::K)
+function KyotoCabinet.pack(k::K)
   io = IOBuffer()
   write(io, int32(k.x))
   takebuf_array(io)
 end
-function kyotocabinet.unpack(T::Type{K}, buf::Array{Uint8,1})
+function KyotoCabinet.unpack(T::Type{K}, buf::Array{Uint8,1})
   io = IOBuffer(buf)
   x = read(io, Int32)
   K(int(x))
 end
 
-function kyotocabinet.pack(v::V)
+function KyotoCabinet.pack(v::V)
   io = IOBuffer()
   write(io, int32(v.a))
   write(io, int32(length(v.b)))
   write(io, v.b)
   takebuf_array(io)
 end
-function kyotocabinet.unpack(T::Type{V}, buf::Array{Uint8,1})
+function KyotoCabinet.unpack(T::Type{V}, buf::Array{Uint8,1})
   io = IOBuffer(buf)
   a = read(io, Int32)
   l = read(io, Int32)
@@ -78,5 +78,5 @@ end
 
 tempdb() = tempname() * ".kch"
 
-# test_get_set()
+test_get_set()
 test_iter()

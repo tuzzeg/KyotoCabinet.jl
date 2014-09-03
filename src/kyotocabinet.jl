@@ -1,4 +1,4 @@
-module kyotocabinet
+module KyotoCabinet
 
 include("c.jl")
 
@@ -399,4 +399,4 @@ _modes = {
 }
 _mode(mode::String) = get(_modes, mode, KCOREADER)
 
-end # module kyotocabinet
+end # module KyotoCabinet
