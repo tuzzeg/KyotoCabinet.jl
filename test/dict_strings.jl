@@ -1,6 +1,5 @@
 using Base.Test
 
-require("src/kyotocabinet.jl")
 using KyotoCabinet
 using KyotoCabinet.c
 

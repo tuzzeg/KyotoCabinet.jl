@@ -15,5 +15,5 @@ before_install:
 script:
   - julia --version
   - julia -e 'Pkg.init(); Pkg.clone(pwd());'
-  - julia -e 'Pkg.build("kyotocabinet")'
+  - julia -e 'Pkg.build("KyotoCabinet")'
   - julia test/runtests.jl

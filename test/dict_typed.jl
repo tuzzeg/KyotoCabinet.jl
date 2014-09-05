@@ -2,7 +2,6 @@ using Base.Test
 
 import Base: ==
 
-require("src/kyotocabinet.jl")
 using KyotoCabinet
 
 immutable K
