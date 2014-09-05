@@ -1,19 +1,19 @@
 # Julia binding for KyotoCabinet
 
-[![Build Status](https://travis-ci.org/tuzzeg/kyotocabinet.jl.svg)](https://travis-ci.org/tuzzeg/kyotocabinet.jl)
+[![Build Status](https://travis-ci.org/tuzzeg/KyotoCabinet.jl.svg)](https://travis-ci.org/tuzzeg/KyotoCabinet.jl)
 
 This package provides bindings for [KyotoCabinet](http://fallabs.com/kyotocabinet) key-value storage.
 
 ## Installation
 
 ```julia
-Pkg.add("kyotocabinet")
+Pkg.add("KyotoCabinet")
 ```
 
 ## Generic interface
 
 ```julia
-using kyotocabinet
+using KyotoCabinet
 ```
 
 To open database, use `open` method:
@@ -74,25 +74,25 @@ immutable V
   b::String
 end
 
-function kyotocabinet.pack(k::K)
+function KyotoCabinet.pack(k::K)
   io = IOBuffer()
   write(io, int32(k.x))
   takebuf_array(io)
 end
-function kyotocabinet.unpack(T::Type{K}, buf::Array{Uint8,1})
+function KyotoCabinet.unpack(T::Type{K}, buf::Array{Uint8,1})
   io = IOBuffer(buf)
   x = read(io, Int32)
   K(int(x))
 end
 
-function kyotocabinet.pack(v::V)
+function KyotoCabinet.pack(v::V)
   io = IOBuffer()
   write(io, int32(v.a))
   write(io, int32(length(v.b)))
   write(io, v.b)
   takebuf_array(io)
 end
-function kyotocabinet.unpack(T::Type{V}, buf::Array{Uint8,1})
+function KyotoCabinet.unpack(T::Type{V}, buf::Array{Uint8,1})
   io = IOBuffer(buf)
   a = read(io, Int32)
   l = read(io, Int32)
