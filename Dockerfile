@@ -22,11 +22,13 @@ RUN \
   apt-get install -y \
     libkyotocabinet-dev
 
+ADD . /src
+
 RUN \
   julia --version && \
   julia -e 'Pkg.init()' && \
-  julia -e 'Pkg.clone("https://github.com/tuzzeg/KyotoCabinet.jl")' && \
+  julia -e 'Pkg.clone("/src", "KyotoCabinet")' && \
   julia -e 'Pkg.build("KyotoCabinet")' && \
-  julia -e 'Pkg.test("KyotoCabinet")'
+  julia /src/test/runtests.jl
 
 CMD ["julia"]
