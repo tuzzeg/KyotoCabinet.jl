@@ -17,4 +17,6 @@ script:
   - julia --version
   - julia -e 'Pkg.init(); Pkg.clone(pwd());'
   - julia -e 'Pkg.build("KyotoCabinet")'
+  - cat $HOME/.julia/v0.3/KyotoCabinet/deps/deps.jl
+  - ls -l $HOME/.julia/v0.3/KyotoCabinet/deps/usr/lib
   - julia test/runtests.jl
