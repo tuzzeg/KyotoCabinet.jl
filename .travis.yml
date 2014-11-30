@@ -19,4 +19,5 @@ script:
   - julia -e 'Pkg.build("KyotoCabinet")'
   - cat $HOME/.julia/v0.3/KyotoCabinet/deps/deps.jl
   - ls -l $HOME/.julia/v0.3/KyotoCabinet/deps/usr/lib
+  - julia -e 'BinDeps.debug("KyotoCabinet")'
   - julia test/runtests.jl
