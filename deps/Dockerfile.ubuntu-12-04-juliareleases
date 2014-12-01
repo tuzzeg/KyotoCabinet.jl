@@ -1,0 +1,31 @@
+FROM ubuntu:12.04
+
+ENV JULIAVERSION juliareleases
+
+RUN \
+  apt-get update -qq -y && \
+  apt-get install -y \
+    software-properties-common\
+    python-software-properties && \
+  add-apt-repository ppa:staticfloat/julia-deps -y && \
+  add-apt-repository ppa:staticfloat/${JULIAVERSION} -y
+
+RUN \
+  apt-get update -qq -y && \
+  apt-get install -y \
+    build-essential \
+    zlib1g-dev \
+    libpcre3-dev \
+    curl \
+    julia
+
+ADD . /src/KyotoCabinet.jl
+
+RUN \
+  julia --version && \
+  julia -e 'Pkg.init()' && \
+  julia -e 'Pkg.clone("/src/KyotoCabinet.jl")' && \
+  julia -e 'Pkg.build("KyotoCabinet")' && \
+  julia /src/KyotoCabinet.jl/test/runtests.jl
+
+CMD ["julia"]
