@@ -32,7 +32,7 @@ provides(SimpleBuild,
       ChangeDirectory(srcdir)
       (@build_steps begin
         `./configure --prefix=$(builddir)`
-        `make cleaninstall`
+        `make install`
       end)
     end
   end), libkyotocabinet, os = :Unix)
