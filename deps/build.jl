@@ -31,7 +31,7 @@ provides(SimpleBuild,
     @build_steps begin
       ChangeDirectory(srcdir)
       (@build_steps begin
-        `configure --prefix=$(builddir)`
+        `./configure --prefix=$(builddir)`
         `make cleaninstall`
       end)
     end
