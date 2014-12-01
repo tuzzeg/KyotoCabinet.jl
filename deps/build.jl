@@ -32,6 +32,7 @@ provides(SimpleBuild,
       ChangeDirectory(srcdir)
       (@build_steps begin
         `./configure --prefix=$(builddir)`
+        `make`
         `make install`
       end)
     end
