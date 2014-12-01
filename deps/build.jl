@@ -7,9 +7,6 @@ deps = [
 ]
 
 @osx_only begin
-  if Pkg.installed("Homebrew") === nothing
-    error("Homebrew package not installed, please run Pkg.add(\"Homebrew\")")
-  end
   using Homebrew
   provides(Homebrew.HB, "kyotocabinet", libkyotocabinet, os = :Darwin )
 end
@@ -25,18 +22,17 @@ provides(Sources, {
   URI("http://fallabs.com/kyotocabinet/pkg/kyotocabinet-$(lib_kc_ver).tar.gz") => libkyotocabinet
 })
 
-prefix = joinpath(BinDeps.depsdir(libkyotocabinet), "usr")
-lib_kc_srcdir = joinpath(BinDeps.depsdir(libkyotocabinet), "src", "kyotocabinet-$(lib_kc_ver)")
-provides(BuildProcess,
+builddir = joinpath(BinDeps.depsdir(libkyotocabinet), "usr")
+srcdir = joinpath(BinDeps.depsdir(libkyotocabinet), "src", "kyotocabinet-$(lib_kc_ver)")
+provides(SimpleBuild,
   (@build_steps begin
     GetSources(libkyotocabinet)
-    CreateDirectory(prefix)
+    CreateDirectory(builddir)
     @build_steps begin
-      ChangeDirectory(lib_kc_srcdir)
-      FileRule(joinpath(prefix, "lib", "libkyotocabinet.so"), @build_steps begin
-        `./configure --prefix=$(prefix)`
-        `make`
-        `make install`
+      ChangeDirectory(srcdir)
+      (@build_steps begin
+        `configure --prefix=$(builddir)`
+        `make cleaninstall`
       end)
     end
   end), libkyotocabinet, os = :Unix)
