@@ -115,8 +115,8 @@ end
 
 TupleOrNothing{K,V} = Union{Tuple{K,V},Nothing}
 
-function Base.iterate{K,V}(cur::Cursor{K,V},
-                           state::TupleOrNothing{K,V}=nothing)::TupleOrNothing{K,V}
+function Base.iterate(cur::Cursor,
+                           state::TupleOrNothing=nothing)::TupleOrNothing
     if state==nothing
         _start!(cur)
     else
@@ -131,21 +131,21 @@ end
 
 # Db methods
 
-function open{K,V}(db::Db{K,V}, file::String, mode::String)
+function open(db::Db, file::String, mode::String)
   open(db, file, _mode(mode))
 end
 
-function open{K,V}(f::Function, db::Db{K,V}, file::String, mode::String)
+function open(f::Function, db::Db, file::String, mode::String)
   open(f, db, file, _mode(mode))
 end
 
-function open{K,V}(db::Db{K,V}, file::String, mode::Uint)
+function open(db::Db, file::String, mode::UInt)
   ok = kcdbopen(db.ptr, bytestring(file), mode)
   if (ok == 0) throw(kcexception(db)) end
   db
 end
 
-function open{K,V}(f::Function, db::Db{K,V}, file::String, mode::Uint)
+function open(f::Function, db::Db, file::String, mode::UInt)
   db = open(db, file, mode)
   try
     f(db)
@@ -160,20 +160,22 @@ function close(db::Db)
   if (ok == 0) throw(kcexception(db)) end
 end
 
-function cas{K,V}(db::Db{K,V}, key::K, old::V, new::V)
+function cas(db::Db{K,V}, key::K, old::V, new::V) where K where V
   kbuf = pack(key)
   ovbuf = pack(old)
   nvbuf = pack(new)
   ok, code = throw_if(db, 0, KCELOGIC) do
-    kcdbcas(db.ptr, pointer(kbuf), length(kbuf), pointer(ovbuf), length(ovbuf), pointer(nvbuf), length(nvbuf))
+    kcdbcas(db.ptr, pointer(kbuf),
+            length(kbuf), pointer(ovbuf),
+            length(ovbuf), pointer(nvbuf), length(nvbuf))
   end
   code == KCESUCCESS
 end
 
 # To resolve conflict with V=nothing
-cas{K}(db::Db{K,Nothing}, key::K, old::Nothing, new::Nothing) = KCESUCCESS
+cas(db::Db{K,Nothing}, key::K, old::Nothing, new::Nothing) where K = KCESUCCESS
 
-function cas{K,V}(db::Db{K,V}, key::K, old::Nothing, new::V)
+function cas(db::Db, key::K, old::Nothing, new::V) where K where V
   kbuf = pack(key)
   nvbuf = pack(new)
   ok, code = throw_if(db, 0, KCELOGIC) do
@@ -182,7 +184,7 @@ function cas{K,V}(db::Db{K,V}, key::K, old::Nothing, new::V)
   code == KCESUCCESS
 end
 
-function cas{K,V}(db::Db{K,V}, key::K, old::V, new::Nothing)
+function cas(db::Db, key::K, old::V, new::Nothing) where K where V
   kbuf = pack(key)
   ovbuf = pack(old)
   ok, code = throw_if(db, 0, KCELOGIC) do
@@ -192,7 +194,7 @@ function cas{K,V}(db::Db{K,V}, key::K, old::V, new::Nothing)
 end
 
 # Dict methods
-function haskey{K,V}(db::Db{K,V}, k::K)
+function haskey(db::Db, k::K) where K
   kbuf = pack(k)
   v, code = throw_if(db, -1, KCENOREC) do
     kcdbcheck(db.ptr, pointer(kbuf), length(kbuf))
@@ -200,11 +202,11 @@ function haskey{K,V}(db::Db{K,V}, k::K)
   code != KCENOREC
 end
 
-function getkey{K,V}(db::Db{K,V}, key::K, default::K)
+function getkey(db::Db, key::K, default::K) where K
   haskey(db, key) ? key : default
 end
 
-function set!{K,V}(db::Db{K,V}, k::K, v::V)
+function set!(db::Db, k::K, v::V) where K where V
   kbuf = pack(k)
   vbuf = pack(v)
   ok = kcdbset(db.ptr, pointer(kbuf), length(kbuf), pointer(vbuf), length(vbuf))
@@ -212,7 +214,7 @@ function set!{K,V}(db::Db{K,V}, k::K, v::V)
   v
 end
 
-function bulkset!{K,V}(db::Db{K,V}, kvs::Dict{K,V}, atomic::Bool)
+function bulkset!(db::Db, kvs::Dict{K,V}, atomic::Bool) where K where V
   # make a copy to prevent GC
   recbuf = [(pack(k), pack(v)) for (k, v) in kvs]
   recs = [KCREC(KCSTR(k, length(k)), KCSTR(v, length(v))) for (k, v) in recbuf]
@@ -221,7 +223,7 @@ function bulkset!{K,V}(db::Db{K,V}, kvs::Dict{K,V}, atomic::Bool)
   c
 end
 
-function bulkdelete!{K,V}(db::Db{K,V}, keys::Array{K,1}, atomic::Bool)
+function bulkdelete!(db::Db, keys::Array, atomic::Bool)
   keybuf = [pack(k) for k in keys]
   ks = [KCSTR(k, length(k)) for k in keybuf]
   c = kcdbremovebulk(db.ptr, ks, length(ks), atomic ? 1 : 0)
@@ -229,7 +231,7 @@ function bulkdelete!{K,V}(db::Db{K,V}, keys::Array{K,1}, atomic::Bool)
   c
 end
 
-function get{K,V}(db::Db{K,V}, k::K)
+function get(db::Db, k::K) where K
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv = kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
@@ -239,7 +241,7 @@ end
 
 get(db::Db, k, default) = get(()->default, db, k)
 
-function get{K,V}(default::Function, db::Db{K,V}, k::K)
+function get(default::Function, db::Db, k::K) where K
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
@@ -250,7 +252,7 @@ end
 
 get!(db::Db, k, default) = get!(()->default, db, k)
 
-function get!{K,V}(default::Function, db::Db{K,V}, k::K)
+function get!(default::Function, db::Db, k::K) where K
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
@@ -259,14 +261,14 @@ function get!{K,V}(default::Function, db::Db{K,V}, k::K)
   code == KCENOREC ? set!(db, k, default()) : _unpack(V, pv, int(vsize[1]))
 end
 
-function delete!{K,V}(db::Db{K,V}, k::K)
+function delete!(db::Db, k::K) where K
   kbuf = pack(k)
   ok = kcdbremove(db.ptr, pointer(kbuf), length(kbuf))
   if (ok == 0) throw(kcexception(db)) end
   db
 end
 
-function pop!{K,V}(db::Db{K,V}, k::K)
+function pop!(db::Db, k::K) where K
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv = kcdbseize(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
@@ -274,7 +276,7 @@ function pop!{K,V}(db::Db{K,V}, k::K)
   _unpack(V, pv, int(vsize[1]))
 end
 
-function pop!{K,V}(db::Db{K,V}, k::K, default::V)
+function pop!(db::Db, k::K, default::V) where K where V
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
@@ -289,7 +291,7 @@ setindex!(db::Db, v, k) = set!(db, k, v)
 
 # Cursor
 
-function _start!{K,V}(cursor::Cursor{K,V})
+function _start!(cursor::Cursor)
   f(cursor::Cursor) = kccurjump(cursor.ptr)
   _move!(cursor, f)
 end
@@ -307,7 +309,7 @@ function _move!(cursor::Cursor, f)
   code != KCENOREC
 end
 
-function _record{K,V}(cursor::Cursor{K,V})
+function _record(cursor::Cursor)
   pkSize = Csize_t[0]
   pvSize = Csize_t[0]
   pv = CString[0]
@@ -376,7 +378,7 @@ function kcexception(cur::Cursor)
   KyotoCabinetException(code, message)
 end
 
-function _unpack(T, p::Ptr{Uint8}, length, free=true)
+function _unpack(T, p::Ptr{UInt8}, length, free=true)
   v = unpack(T, pointer_to_array(p, length))
   if free
     ok = kcfree(p)
@@ -385,11 +387,11 @@ function _unpack(T, p::Ptr{Uint8}, length, free=true)
   v
 end
 
-_modes = {
+_modes = Dict(
   "r" => KCOREADER,
   "w" => KCOWRITER,
   "w+" => KCOWRITER | KCOCREATE
-}
+)
 _mode(mode::String) = get(_modes, mode, KCOREADER)
 
 end # module KyotoCabinet
