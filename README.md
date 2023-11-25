@@ -145,3 +145,5 @@ bulkset!(db, ["a" => "1", "b" => "2"], true)
 # Removes records in one operation, atomically if needed.
 bulkdelete!(db, ["a", "b"], true)
 ```
+
+[![Build Status](https://github.com/eugeneai/KyotoCabinet.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/eugeneai/KyotoCabinet.jl/actions/workflows/CI.yml?query=branch%3Amaster)
