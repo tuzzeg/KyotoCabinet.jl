@@ -6,7 +6,7 @@ include("c.jl")
 import Base: open, close
 
 # Iteration
-import Base: start, next, done
+import Base
 
 # Generic collections
 import Base: isempty, empty!, length
@@ -15,7 +15,7 @@ import Base: isempty, empty!, length
 import Base: getindex, setindex!
 
 # Dict
-import Base: Associative, haskey, getkey, get, get!, delete!, pop!
+import Base: AbstractDict, haskey, getkey, get, get!, delete!, pop!
 
 using .c
 
@@ -27,46 +27,62 @@ export
   get, set!, path, cas, bulkset!, bulkdelete!,
   pack, unpack
 
-typealias Bytes Array{Uint8,1}
+Bytes = Array{UInt8,1}
 
-type Db{K,V} <: Associative{K,V}
-  ptr :: Ptr{Void}
+mutable struct Db{K,V} <: AbstractDict{K,V}
+    ptr :: Ptr{Cvoid}
 
-  function Db(null=false)
-    if (null)
-      new(C_NULL)
-    else
-      ptr = kcdbnew()
-      self = new(ptr)
-      finalizer(self, destroy)
-      self
+    function Db(null=false)
+        if (null)
+            ptr = C_NULL
+        else
+            ptr = kcdbnew()
+        end
+        self = new{K,V}(C_NULL)
+        self.ptr = ptr
+        finalizer(self) do db
+            if db.ptr == C_NULL
+                return
+            end
+            kcdbclose(db.ptr)
+            kcdbdel(db.ptr)
+            db.ptr = C_NULL
+        end
+        self
     end
-  end
 end
 
-type Cursor{K,V}
-  ptr :: Ptr{Void}
+mutable struct Cursor{K,V}
+  ptr :: Ptr{Cvoid}
   db :: Db{K,V} # to prevent DB GCed before cursor
 
   function Cursor()
-    new(C_NULL, Db{K,V}(true))
+    new{K,V}(C_NULL, Db{K,V}(true))
   end
 
-  function Cursor(db::Db{K,V})
+  function Cursor(db::Db)
     ptr = kcdbcursor(db.ptr)
-    self = Cursor{K,V}()
+    self = new{K,V}()
     self.ptr = ptr
     self.db = db
-    finalizer(self, destroy)
+
+    finalizer(self) do cursor
+        if cursor.ptr == C_NULL
+            return
+        end
+        kccurdel(cursor.ptr)
+        cursor.ptr = C_NULL
+    end
+
     self
   end
 end
 
-immutable RecordIterator{K,V}
+struct RecordIterator{K,V}
   cursor :: Cursor{K,V}
 end
 
-immutable KyotoCabinetException <: Exception
+struct KyotoCabinetException <: Exception
   code :: Int32
   message :: String
 end
@@ -97,26 +113,20 @@ end
 
 # Iterable interface for Db
 
-function start{K,V}(db::Db{K,V})
-  cur = Cursor{K,V}(db)
-  _start!(cur) ? RecordIterator{K,V}(cur) : RecordIterator{K,V}(Cursor{K,V}())
-end
+TupleOrNothing{K,V} = Union{Tuple{K,V},Nothing}
 
-function next{K,V}(db::Db{K,V}, it::RecordIterator{K,V})
-  if done(db, it)
-    throw(KyotoCabinetException(KCENOREC, "Can not move forward"))
-  end
-  kv = _record(it.cursor)
-  if (_next!(it.cursor))
-    (kv, it)
-  else
-    destroy(it.cursor)
-    (kv, RecordIterator{K,V}(Cursor{K,V}()))
-  end
-end
-
-function done(db::Db, it::RecordIterator)
-  it.cursor.ptr == C_NULL
+function Base.iterate{K,V}(cur::Cursor{K,V},
+                           state::TupleOrNothing{K,V}=nothing)::TupleOrNothing{K,V}
+    if state==nothing
+        _start!(cur)
+    else
+        _next!(cur)
+    end
+    if cur.ptr == C_NULL
+        nothing
+    else
+        _record(cur)
+    end
 end
 
 # Db methods
@@ -148,15 +158,6 @@ end
 function close(db::Db)
   ok = kcdbclose(db.ptr)
   if (ok == 0) throw(kcexception(db)) end
-end
-
-function destroy(db::Db)
-  if db.ptr == C_NULL
-    return
-  end
-  kcdbclose(db.ptr)
-  kcdbdel(db.ptr)
-  db.ptr = C_NULL
 end
 
 function cas{K,V}(db::Db{K,V}, key::K, old::V, new::V)
@@ -288,7 +289,7 @@ setindex!(db::Db, v, k) = set!(db, k, v)
 
 # Cursor
 
-function _start!(cursor::Cursor)
+function _start!{K,V}(cursor::Cursor{K,V})
   f(cursor::Cursor) = kccurjump(cursor.ptr)
   _move!(cursor, f)
 end
@@ -373,14 +374,6 @@ function kcexception(cur::Cursor)
   message = bytestring(kccuremsg(cur.ptr))
 
   KyotoCabinetException(code, message)
-end
-
-function destroy(cursor::Cursor)
-  if cursor.ptr == C_NULL
-    return
-  end
-  kccurdel(cursor.ptr)
-  cursor.ptr = C_NULL
 end
 
 function _unpack(T, p::Ptr{Uint8}, length, free=true)
