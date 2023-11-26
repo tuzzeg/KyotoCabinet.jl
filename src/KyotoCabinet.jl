@@ -78,10 +78,6 @@ mutable struct Cursor{K,V}
   end
 end
 
-struct RecordIterator{K,V}
-  cursor :: Cursor{K,V}
-end
-
 struct KyotoCabinetException <: Exception
   code :: Int32
   message :: String
@@ -97,15 +93,15 @@ unpack(T::Type{Bytes}, buf::Bytes) = copy(buf)
 
 # Generic collections
 
-isempty(db::Db) = (length(db) == 0)
+isempty(db::Db{K,V}) where K where V = (length(db) == 0)
 
-function length(db::Db)
+function length(db::Db{K,V}) where K where V
   count = kcdbcount(db.ptr)
   if (count == -1) throw(kcexception(db)) end
   count
 end
 
-function empty!(db::Db)
+function empty!(db::Db{K,V}) where K where V
   ok = kcdbclear(db.ptr)
   if (ok == 0) throw(kcexception(db)) end
   db
@@ -115,8 +111,8 @@ end
 
 TupleOrNothing{K,V} = Union{Tuple{K,V},Nothing}
 
-function Base.iterate(cur::Cursor,
-                           state::TupleOrNothing=nothing)::TupleOrNothing
+function Base.iterate(cur::Cursor{K,V},
+                           state::TupleOrNothing{K,V}=nothing)::TupleOrNothing{K,V} where K where V
     if state==nothing
         _start!(cur)
     else
@@ -131,21 +127,21 @@ end
 
 # Db methods
 
-function open(db::Db, file::String, mode::String)
+function open(db::Db{K,V}, file::String, mode::String) where K where V
   open(db, file, _mode(mode))
 end
 
-function open(f::Function, db::Db, file::String, mode::String)
+function open(f::Function, db::Db{K,V}, file::String, mode::String) where K where V
   open(f, db, file, _mode(mode))
 end
 
-function open(db::Db, file::String, mode::UInt)
+function open(db::Db{K,V}, file::String, mode::UInt) where K where V
   ok = kcdbopen(db.ptr, bytestring(file), mode)
   if (ok == 0) throw(kcexception(db)) end
   db
 end
 
-function open(f::Function, db::Db, file::String, mode::UInt)
+function open(f::Function, db::Db{K,V}, file::String, mode::UInt) where K where V
   db = open(db, file, mode)
   try
     f(db)
@@ -155,7 +151,7 @@ function open(f::Function, db::Db, file::String, mode::UInt)
   end
 end
 
-function close(db::Db)
+function close(db::Db{K,V}) where K where V
   ok = kcdbclose(db.ptr)
   if (ok == 0) throw(kcexception(db)) end
 end
@@ -175,7 +171,7 @@ end
 # To resolve conflict with V=nothing
 cas(db::Db{K,Nothing}, key::K, old::Nothing, new::Nothing) where K = KCESUCCESS
 
-function cas(db::Db, key::K, old::Nothing, new::V) where K where V
+function cas(db::Db{K,V}, key::K, old::Nothing, new::V) where K where V
   kbuf = pack(key)
   nvbuf = pack(new)
   ok, code = throw_if(db, 0, KCELOGIC) do
@@ -184,7 +180,7 @@ function cas(db::Db, key::K, old::Nothing, new::V) where K where V
   code == KCESUCCESS
 end
 
-function cas(db::Db, key::K, old::V, new::Nothing) where K where V
+function cas(db::Db{K,V}, key::K, old::V, new::Nothing) where K where V
   kbuf = pack(key)
   ovbuf = pack(old)
   ok, code = throw_if(db, 0, KCELOGIC) do
@@ -194,7 +190,7 @@ function cas(db::Db, key::K, old::V, new::Nothing) where K where V
 end
 
 # Dict methods
-function haskey(db::Db, k::K) where K
+function haskey(db::Db{K,V}, k::K) where K where V
   kbuf = pack(k)
   v, code = throw_if(db, -1, KCENOREC) do
     kcdbcheck(db.ptr, pointer(kbuf), length(kbuf))
@@ -202,11 +198,11 @@ function haskey(db::Db, k::K) where K
   code != KCENOREC
 end
 
-function getkey(db::Db, key::K, default::K) where K
+function getkey(db::Db{K,V}, key::K, default::K) where K where V
   haskey(db, key) ? key : default
 end
 
-function set!(db::Db, k::K, v::V) where K where V
+function set!(db::Db{K,V}, k::K, v::V) where K where V
   kbuf = pack(k)
   vbuf = pack(v)
   ok = kcdbset(db.ptr, pointer(kbuf), length(kbuf), pointer(vbuf), length(vbuf))
@@ -214,7 +210,7 @@ function set!(db::Db, k::K, v::V) where K where V
   v
 end
 
-function bulkset!(db::Db, kvs::Dict{K,V}, atomic::Bool) where K where V
+function bulkset!(db::Db{K,V}, kvs::Dict{K,V}, atomic::Bool) where K where V
   # make a copy to prevent GC
   recbuf = [(pack(k), pack(v)) for (k, v) in kvs]
   recs = [KCREC(KCSTR(k, length(k)), KCSTR(v, length(v))) for (k, v) in recbuf]
@@ -223,7 +219,7 @@ function bulkset!(db::Db, kvs::Dict{K,V}, atomic::Bool) where K where V
   c
 end
 
-function bulkdelete!(db::Db, keys::Array, atomic::Bool)
+function bulkdelete!(db::Db{K,V}, keys::Array, atomic::Bool) where K where V
   keybuf = [pack(k) for k in keys]
   ks = [KCSTR(k, length(k)) for k in keybuf]
   c = kcdbremovebulk(db.ptr, ks, length(ks), atomic ? 1 : 0)
@@ -231,7 +227,7 @@ function bulkdelete!(db::Db, keys::Array, atomic::Bool)
   c
 end
 
-function get(db::Db, k::K) where K
+function get(db::Db{K,V}, k::K) where K where V
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv = kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
@@ -241,7 +237,7 @@ end
 
 get(db::Db, k, default) = get(()->default, db, k)
 
-function get(default::Function, db::Db, k::K) where K
+function get(default::Function, db::Db{K,V}, k::K) where K where V
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
@@ -252,7 +248,7 @@ end
 
 get!(db::Db, k, default) = get!(()->default, db, k)
 
-function get!(default::Function, db::Db, k::K) where K
+function get!(default::Function, db::Db{K,V}, k::K) where K where V
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
@@ -261,14 +257,14 @@ function get!(default::Function, db::Db, k::K) where K
   code == KCENOREC ? set!(db, k, default()) : _unpack(V, pv, int(vsize[1]))
 end
 
-function delete!(db::Db, k::K) where K
+function delete!(db::Db{K,V}, k::K) where K where V
   kbuf = pack(k)
   ok = kcdbremove(db.ptr, pointer(kbuf), length(kbuf))
   if (ok == 0) throw(kcexception(db)) end
   db
 end
 
-function pop!(db::Db, k::K) where K
+function pop!(db::Db{K,V}, k::K) where K where V
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv = kcdbseize(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
@@ -276,7 +272,7 @@ function pop!(db::Db, k::K) where K
   _unpack(V, pv, int(vsize[1]))
 end
 
-function pop!(db::Db, k::K, default::V) where K where V
+function pop!(db::Db{K,V}, k::K, default::V) where K where V
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
@@ -286,30 +282,30 @@ function pop!(db::Db, k::K, default::V) where K where V
 end
 
 # Indexable collection
-getindex(db::Db, k) = get(db, k)
-setindex!(db::Db, v, k) = set!(db, k, v)
+getindex(db::Db{K,V}, k) where K where V = get(db, k)
+setindex!(db::Db{K,V}, v, k) where K where V = set!(db, k, v)
 
 # Cursor
 
-function _start!(cursor::Cursor)
+function _start!(cursor::Cursor{K,V}) where K where V
   f(cursor::Cursor) = kccurjump(cursor.ptr)
   _move!(cursor, f)
 end
 
 # Move to the next record. Return false if there no next record.
-function _next!(cursor::Cursor)
+function _next!(cursor::Cursor{K,V}) where K where V
   f(cursor::Cursor) = kccurstep(cursor.ptr)
   _move!(cursor, f)
 end
 
-function _move!(cursor::Cursor, f)
+function _move!(cursor::Cursor{K,V}, f) where K where V
   ok, code = throw_if(cursor, 0, KCENOREC) do
     f(cursor)
   end
   code != KCENOREC
 end
 
-function _record(cursor::Cursor)
+function _record(cursor::Cursor{K,V}) where K where V
   pkSize = Csize_t[0]
   pvSize = Csize_t[0]
   pv = CString[0]
@@ -332,7 +328,7 @@ function path(db::Db)
 end
 
 # KyotoCabinet exceptions
-function throw_if(f::Function, db::Db, result_invalid, ecode_valid)
+function throw_if(f::Function, db::Db{K,V}, result_invalid, ecode_valid) where K where V
   result = f()
   if (result == result_invalid)
     code = kcdbecode(db.ptr)
@@ -346,7 +342,7 @@ function throw_if(f::Function, db::Db, result_invalid, ecode_valid)
   (result, KCESUCCESS)
 end
 
-function throw_if(f::Function, cursor::Cursor, result_invalid, ecode_valid)
+function throw_if(f::Function, cursor::Cursor{K,V}, result_invalid, ecode_valid) where K where V
   result = f()
   if (result == result_invalid)
     code = kccurecode(cursor.ptr)
@@ -360,7 +356,7 @@ function throw_if(f::Function, cursor::Cursor, result_invalid, ecode_valid)
   (result, KCESUCCESS)
 end
 
-function kcexception(db::Db)
+function kcexception(db::Db{K,V}) where K where V
   @assert db.ptr != C_NULL
 
   code = kcdbecode(db.ptr)
@@ -369,7 +365,7 @@ function kcexception(db::Db)
   KyotoCabinetException(code, message)
 end
 
-function kcexception(cur::Cursor)
+function kcexception(cur::Cursor{K,V}) where K where V
   @assert cur.ptr != C_NULL
 
   code = kccurecode(cur.ptr)
