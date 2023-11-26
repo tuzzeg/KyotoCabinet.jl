@@ -89,7 +89,7 @@ pack(v::Bytes)::Bytes  = v
 # Unpack byte array (Array{Uint8,1}) into value of type T.
 # buf is not GCed and will be freed right after unpack
 # use copy() to own
-unpack(buf::Bytes)::Bytes = copy(buf)
+unpack(Bytes, buf::Bytes)::Bytes = copy(buf)
 
 # Generic collections
 
@@ -243,6 +243,15 @@ function bulkset!(db::Db{K,V}, kvs::AbstractDict{K,V}, atomic::Bool) where {K,V}
   c
 end
 
+function bulkset!(db::Db{K,V}, kvs::AbstractArray{Pair{K,V}}, atomic::Bool) where {K,V}
+  # make a copy to prevent GC
+  recbuf = [(pack(k), pack(v)) for (k, v) in kvs]
+  recs = [KCREC(KCSTR(k, length(k)), KCSTR(v, length(v))) for (k, v) in recbuf]
+  c = kcdbsetbulk(db.ptr, recs, length(recs), atomic ? 1 : 0)
+  if (c == -1) throw(kcexception(db)) end
+  c
+end
+
 function bulkdelete!(db::Db{K,V}, keys::Array, atomic::Bool) where {K,V}
   keybuf = [pack(k) for k in keys]
   ks = [KCSTR(k, length(k)) for k in keybuf]
@@ -268,33 +277,34 @@ function merge!(db::Db{K,V}, kvs::AbstractArray{Pair{K,V}}, atomic=false) where 
 end
 
 function get(db::Db{K,V}, k::K)::V where {K,V}
-  kbuf = pack(k)
-  vsize = Csize_t[0]
-  pv = kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
-  if (pv == C_NULL) throw(kcexception(db)) end
-  _unpack(pv, convert(Int, vsize[1]))::V
+    kbuf = pack(k)
+    vsize = Csize_t[0]
+    pv = kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
+    if (pv == C_NULL) throw(kcexception(db)) end
+    v=_unpack(V, pv, convert(Int, vsize[1]))
+    v::V
 end
 
 get(db::Db{K,V}, k, default) where {K,V} = get(()->default, db, k)
 
-function get(default::Function, db::Db{K,V}, k::K) where {K,V}
+function get(default::Function, db::Db{K,V}, k::K)::V where {K,V}
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
   end
-  code == KCENOREC ? default() : _unpack(pv, convert(Int, vsize[1]))
+  code == KCENOREC ? default() : _unpack(V, pv, convert(Int, vsize[1]))
 end
 
 get!(db::Db{K,V}, k, default) where {K,V} = get!(()->default, db, k)
 
-function get!(default::Function, db::Db{K,V}, k::K) where {K,V}
+function get!(default::Function, db::Db{K,V}, k::K)::V where {K,V}
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
   end
-  code == KCENOREC ? set!(db, k, default()) : _unpack(pv, convert(Int, vsize[1]))
+  code == KCENOREC ? set!(db, k, default()) : _unpack(V, pv, convert(Int, vsize[1]))
 end
 
 function delete!(db::Db{K,V}, k::K) where {K,V}
@@ -312,13 +322,13 @@ function pop!(db::Db{K,V}, k::K) where {K,V}
   _unpack(V, pv, int(vsize[1]))
 end
 
-function pop!(db::Db{K,V}, k::K, default::V) where {K,V}
+function pop!(db::Db{K,V}, k::K, default::V)::V where {K,V}
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbseize(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
   end
-  code == KCENOREC ? default : _unpack(pv, convert(Int, vsize[1]))
+  code == KCENOREC ? default : _unpack(V, pv, convert(Int, vsize[1]))
 end
 
 # Indexable collection
@@ -356,8 +366,8 @@ function _record(cursor::Cursor{K,V})::TupleOrNothing{K,V} where {K,V}
     end
     vk = v[1]
 
-    key = _unpack(pk, convert(Int, pkSize[1]), false)::K
-    val = _unpack(vk, convert(Int, pvSize[1]), false)::V
+    key = _unpack(K, pk, convert(Int, pkSize[1]), false)::K
+    val = _unpack(V, vk, convert(Int, pvSize[1]), false)::V
     # println(key, "-", val)
     res = (key, val)
     kcfree(pk)
@@ -423,9 +433,9 @@ function kcexception(cur::Cursor{K,V}) where {K,V}
   KyotoCabinetException(code, message)
 end
 
-function _unpack(p::Ptr{UInt8}, length::Int, free=true)
+function _unpack(t::Type{T}, p::Ptr{UInt8}, length::Int, free=true) where T
     bs::Bytes = unsafe_wrap(Bytes, p, length, own=false)
-    v = unpack(bs::Bytes)
+    v = unpack(t, bs::Bytes)
     if free
         kcfree(p)
         # ok = kcfree(p)
