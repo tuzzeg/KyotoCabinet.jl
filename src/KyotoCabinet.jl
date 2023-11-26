@@ -32,7 +32,7 @@ Bytes = Array{UInt8,1}
 mutable struct Db{K,V} <: AbstractDict{K,V}
     ptr :: Ptr{Cvoid}
 
-    function Db(null=false)
+    function Db{K,V}(null=false) where K where V
         if (null)
             ptr = C_NULL
         else
@@ -136,7 +136,7 @@ function open(f::Function, db::Db{K,V}, file::String, mode::String) where K wher
 end
 
 function open(db::Db{K,V}, file::String, mode::UInt) where K where V
-  ok = kcdbopen(db.ptr, bytestring(file), mode)
+  ok = kcdbopen(db.ptr, file, mode)
   if (ok == 0) throw(kcexception(db)) end
   db
 end
@@ -319,9 +319,9 @@ function _record(cursor::Cursor{K,V}) where K where V
   res
 end
 
-function path(db::Db{K,V}) where K where V
+function path(db::Db{K,V})::String where K where V
   p = kcdbpath(db.ptr)
-  v = bytestring(p)
+  v = unsafe_string(p)
   ok = kcfree(p)
   if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
   v
@@ -335,7 +335,7 @@ function throw_if(f::Function, db::Db{K,V}, result_invalid, ecode_valid) where K
     if (code == ecode_valid)
       return (result, code)
     else
-      message = bytestring(kcdbemsg(db.ptr))
+      message = unsafe_string(kcdbemsg(db.ptr))
       throw(KyotoCabinetException(code, message))
     end
   end
@@ -349,7 +349,7 @@ function throw_if(f::Function, cursor::Cursor{K,V}, result_invalid, ecode_valid)
     if (code == ecode_valid)
       return (result, code)
     else
-      message = bytestring(kccuremsg(cursor.ptr))
+      message = unsafe_string(kccuremsg(cursor.ptr))
       throw(KyotoCabinetException(code, message))
     end
   end
@@ -360,7 +360,7 @@ function kcexception(db::Db{K,V}) where K where V
   @assert db.ptr != C_NULL
 
   code = kcdbecode(db.ptr)
-  message = bytestring(kcdbemsg(db.ptr))
+  message = unsafe_string(kcdbemsg(db.ptr))
 
   KyotoCabinetException(code, message)
 end
@@ -369,7 +369,7 @@ function kcexception(cur::Cursor{K,V}) where K where V
   @assert cur.ptr != C_NULL
 
   code = kccurecode(cur.ptr)
-  message = bytestring(kccuremsg(cur.ptr))
+  message = unsafe_string(kccuremsg(cur.ptr))
 
   KyotoCabinetException(code, message)
 end
