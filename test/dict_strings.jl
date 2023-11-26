@@ -3,8 +3,8 @@ using Test
 using KyotoCabinet
 using KyotoCabinet.c
 
-KyotoCabinet.pack(v::String) = v # convert(Array{UInt8,1}, v)
-KyotoCabinet.unpack(buf::Cstring)::String = unsafe_string(buf)
+KyotoCabinet.pack(v::String)::Bytes = Bytes(v) # convert(Array{UInt8,1}, v)
+KyotoCabinet.unpack(buf::Bytes)::String = String(buf)
 
 # TODO: add exception type to @test_throws
 # See: https://github.com/JuliaLang/julia/commit/6fa50c4183358047c772a508e7a1a44a47c94a95
@@ -61,8 +61,8 @@ end
 # Use cursor to iterate records
 @testset "iterate_empty" begin
   test_with(empty_db) do db
-    log = string()
-    for (k, v) = db
+    log = ""
+    for (k, v) in db
       log = log * " $k:$v"
     end
     @test "" == log

@@ -60,7 +60,7 @@ mutable struct Cursor{K,V}
     new{K,V}(C_NULL, Db{K,V}(true))
   end
 
-  function Cursor(db::Db)
+  function Cursor(db::Db{K,V}) where {K,V}
     ptr = kcdbcursor(db.ptr)
     self = new{K,V}()
     self.ptr = ptr
@@ -111,18 +111,42 @@ end
 
 TupleOrNothing{K,V} = Union{Tuple{K,V},Nothing}
 
-function Base.iterate(cur::Cursor{K,V},
-                           state::TupleOrNothing{K,V}=nothing)::TupleOrNothing{K,V} where {K,V}
-    if state==nothing
-        _start!(cur)
-    else
-        _next!(cur)
-    end
+function _return(cur::Cursor{K,V})::TupleOrNothing{Tuple{K,V},Cursor{K,V}} where {K,V}
     if cur.ptr == C_NULL
         nothing
     else
-        _record(cur)
+        val = _record(cur)
+        if val == nothing
+            return nothing
+        end
+        (val, cur)
     end
+end
+
+function Base.iterate(db::Db{K,V})::TupleOrNothing{Tuple{K,V},Cursor{K,V}} where {K,V}
+    cur = Cursor(db)
+    Base.iterate(cur)
+end
+
+function Base.iterate(db::Db{K,V}, cur::Cursor{K,V})::TupleOrNothing{Tuple{K,V},Cursor{K,V}} where {K,V}
+    rc = _return(cur)
+    if rc == nothing
+        return nothing
+    end
+
+    vk, _cur = rc
+    Base.iterate(cur, vk)
+end
+
+function Base.iterate(cur::Cursor{K,V})::TupleOrNothing{Tuple{K,V},Cursor{K,V}} where {K,V}
+    _start!(cur)
+    _return(cur)
+end
+
+function Base.iterate(cur::Cursor{K,V},
+                      state::TupleOrNothing{K,V})::TupleOrNothing{Tuple{K,V},Cursor{K,V}} where {K,V}
+    _next!(cur)
+    _return(cur)
 end
 
 # Db methods
@@ -227,12 +251,12 @@ function bulkdelete!(db::Db{K,V}, keys::Array, atomic::Bool) where {K,V}
   c
 end
 
-function get(db::Db{K,V}, k::K) where {K,V}
+function get(db::Db{K,V}, k::K)::V where {K,V}
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv = kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
   if (pv == C_NULL) throw(kcexception(db)) end
-  _unpack(V, pv, convert(Int, vsize[1]))
+  _unpack(pv, convert(Int, vsize[1]))::V
 end
 
 get(db::Db{K,V}, k, default) where {K,V} = get(()->default, db, k)
@@ -305,18 +329,26 @@ function _move!(cursor::Cursor{K,V}, f) where {K,V}
   code != KCENOREC
 end
 
-function _record(cursor::Cursor{K,V}) where {K,V}
-  pkSize = Csize_t[0]
-  pvSize = Csize_t[0]
-  pv = CString[0]
-  pk = kccurget(cursor.ptr, pointer(pkSize), pointer(pv), pointer(pvSize), 0)
-  if (pk == C_NULL) throw(kcexception(cursor)) end
+function _record(cursor::Cursor{K,V})::TupleOrNothing{K,V} where {K,V}
+    pkSize = Csize_t[0]
+    pvSize = Csize_t[0]
+    v = Vector{Ptr{UInt8}}(undef,1)
+    pk = kccurget(cursor.ptr, pointer(pkSize), pointer(v), pointer(pvSize), 0)
+    # if (pk == C_NULL) throw(kcexception(cursor)) end
+    if (pk == C_NULL)
+        return nothing
+    end
+    vk = v[1]
 
-  res = (_unpack(K, pk, int(pkSize[1]), false), _unpack(V, pv[1], int(pvSize[1]), false))
-  ok = kcfree(pk)
-  if (ok == 0) throw(kcexception(cursor)) end
+    key = _unpack(pk, convert(Int, pkSize[1]), false)::K
+    val = _unpack(vk, convert(Int, pvSize[1]), false)::V
+    # println(key, "-", val)
+    res = (key, val)
+    ok1 = kcfree(pk)
+    # ok2 = kcfree(vk)
+    if (ok1 == 0) throw(kcexception(cursor)) end
 
-  res
+    res
 end
 
 function path(db::Db{K,V})::String where {K,V}
@@ -374,13 +406,14 @@ function kcexception(cur::Cursor{K,V}) where {K,V}
   KyotoCabinetException(code, message)
 end
 
-function _unpack(T, p::Ptr{UInt8}, length::Int, free=true)
-  v = unpack(T, pointer_to_array(p, length))
-  if free
-    ok = kcfree(p)
-    if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
-  end
-  v
+function _unpack(p::Ptr{UInt8}, length::Int, free=true)
+    bs::Bytes = unsafe_wrap(Bytes, p, length, own=false)
+    v = unpack(bs::Bytes)
+    if free
+        ok = kcfree(p)
+        if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
+    end
+    v
 end
 
 _modes = Dict{String,UInt}(

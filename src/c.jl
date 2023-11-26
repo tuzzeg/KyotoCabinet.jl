@@ -115,8 +115,8 @@ function kcdbset(db::KCDBPtr, kbuf, ksize::Int, vbuf, vsize::Int)
 end
 
 # Retrieve the value of a record.
-function kcdbget(db::KCDBPtr, kbuf, ksize::Int, vsizePtr::Ptr{Csize_t})
-    ccall((:kcdbget, libkyotocabinet), Cstring, (KCDBPtr, Cstring, Cuint, Ptr{Csize_t}),
+function kcdbget(db::KCDBPtr, kbuf, ksize::Int, vsizePtr::Ptr{Csize_t})::Ptr{UInt8}
+    ccall((:kcdbget, libkyotocabinet), Ptr{UInt8}, (KCDBPtr, Cstring, Cuint, Ptr{Csize_t}),
           db, kbuf, ksize, vsizePtr)
 end
 
@@ -185,9 +185,9 @@ function kccurdel(cursor::KCCURPtr)
 end
 
 # Get a pair of the key and the value of the current record.
-function kccurget(cursor::KCCURPtr, ksize::Int, v, vsize::Int, step::Int)
-  ccall((:kccurget, libkyotocabinet), Cstring,
-    (KCCURPtr, Ptr{Cuint}, Ptr{Cstring}, Ptr{Cuint}, Cint),
+function kccurget(cursor::KCCURPtr, ksize::Ptr{Csize_t}, v::Ptr{Ptr{UInt8}}, vsize::Ptr{Csize_t}, step::Int)
+  ccall((:kccurget, libkyotocabinet), Ptr{UInt8}, # Cstring,
+    (KCCURPtr, Ptr{Csize_t}, Ptr{Ptr{UInt8}}, Ptr{Csize_t}, Cint),
     cursor, ksize, v, vsize, step)
 end
 
