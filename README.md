@@ -52,10 +52,10 @@ end
 Support iteration over records, keys and values:
 
 ```julia
-for (k, v) = db
+for (k, v) in db
   println("k=$k v=$v")
 end
-for k = keys(db)
+for k in keys(db)
   println("k=$k")
 end
 ```
@@ -65,51 +65,51 @@ end
 To make it work with arbitrary types, one needs to define pack/unpack methods.
 
 ```julia
-immutable K
+struct Key
   x::Int
 end
 
-immutable V
+struct Val
   a::Int
   b::String
 end
 
-function KyotoCabinet.pack(k::K)
+function KyotoCabinet.pack(k::Key)::Bytes
   io = IOBuffer()
-  write(io, int32(k.x))
-  takebuf_array(io)
-end
-function KyotoCabinet.unpack(T::Type{K}, buf::Array{Uint8,1})
-  io = IOBuffer(buf)
-  x = read(io, Int32)
-  K(int(x))
+  write(io, convert(Int32, k.x))
+  take!(io)
 end
 
-function KyotoCabinet.pack(v::V)
-  io = IOBuffer()
-  write(io, int32(v.a))
-  write(io, int32(length(v.b)))
-  write(io, v.b)
-  takebuf_array(io)
+function KyotoCabinet.unpack(k::Type{Key}, buf::Bytes)::Key
+  io = IOBuffer(buf)
+  x = read(io, Int32)
+  Key(convert(Int, x))
 end
-function KyotoCabinet.unpack(T::Type{V}, buf::Array{Uint8,1})
+
+function KyotoCabinet.pack(v::Val)::Bytes
+  io = IOBuffer()
+  write(io, convert(Int32, v.a))
+  write(io, v.b)
+  take!(io)
+end
+
+function KyotoCabinet.unpack(v::Type{Val}, buf::Bytes)::Val
   io = IOBuffer(buf)
   a = read(io, Int32)
-  l = read(io, Int32)
-  b = bytestring(read(io, Uint8, l))
-  V(int(a), b)
+  b = read(io, String)
+  Val(a,b)
 end
 ```
 
 After that these types can be used as keys/values:
 
 ```julia
-open(Db{K, V}(), "db.kch", "w+") do db
-  db[K(1)] = V(1, "a")
-  db[K(1999999999)] = V(2, repeat("b",100))
+open(Db{Key, Val}(), "db.kch", "w+") do db
+  db[Key(1)] = Val(1, "a")
+  db[Key(1999999999)] = Val(2, repeat("b",100))
 end
 
-k = K(1)
+k = Key(1)
 println(db[k])
 ```
 
