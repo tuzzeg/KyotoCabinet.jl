@@ -89,7 +89,7 @@ pack(v::Bytes)::Bytes  = v
 # Unpack byte array (Array{Uint8,1}) into value of type T.
 # buf is not GCed and will be freed right after unpack
 # use copy() to own
-unpack(Bytes, buf::Bytes)::Bytes = copy(buf)
+unpack(t::Type{Bytes}, buf::Bytes)::Bytes = copy(buf)
 
 # Generic collections
 
@@ -365,7 +365,7 @@ function _record(cursor::Cursor{K,V})::TupleOrNothing{K,V} where {K,V}
         return nothing
     end
     vk = v[1]
-
+    # println("Types ", K,"->", V)
     key = _unpack(K, pk, convert(Int, pkSize[1]), false)::K
     val = _unpack(V, vk, convert(Int, pvSize[1]), false)::V
     # println(key, "-", val)
@@ -435,7 +435,7 @@ end
 
 function _unpack(t::Type{T}, p::Ptr{UInt8}, length::Int, free=true) where T
     bs::Bytes = unsafe_wrap(Bytes, p, length, own=false)
-    println("U:", bs, "::", t)
+    # println("U:", bs, "::", t)
     v = unpack(t, bs::Bytes)
     if free
         kcfree(p)

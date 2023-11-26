@@ -25,7 +25,7 @@ function KyotoCabinet.pack(k::Key)::Bytes
   take!(io)
 end
 
-function KyotoCabinet.unpack(Key, buf::Bytes)::Key
+function KyotoCabinet.unpack(k::Type{Key}, buf::Bytes)::Key
   io = IOBuffer(buf)
   x = read(io, Int32)
   Key(convert(Int, x))
@@ -38,7 +38,7 @@ function KyotoCabinet.pack(v::Val)::Bytes
   take!(io)
 end
 
-function KyotoCabinet.unpack(Val, buf::Bytes)::Val
+function KyotoCabinet.unpack(v::Type{Val}, buf::Bytes)::Val
   io = IOBuffer(buf)
   a = read(io, Int32)
   b = read(io, String)
@@ -61,6 +61,7 @@ end
 
 @testset "iter" begin
     file = tempdb()
+    println("Filename: ", file)
     open(Db{Key, Val}(), file, "w+") do db
         db[Key(1)] = Val(1, "a")
         db[Key(1999999999)] = Val(2, repeat("b",100))

@@ -4,7 +4,7 @@ using KyotoCabinet
 using KyotoCabinet.c
 
 KyotoCabinet.pack(v::String)::Bytes = Bytes(v) # convert(Array{UInt8,1}, v)
-KyotoCabinet.unpack(String, buf::Bytes)::String = String(buf)
+KyotoCabinet.unpack(t::Type{String}, buf::Bytes)::String = String(buf)
 
 # TODO: add exception type to @test_throws
 # See: https://github.com/JuliaLang/julia/commit/6fa50c4183358047c772a508e7a1a44a47c94a95
