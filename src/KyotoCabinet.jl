@@ -32,7 +32,7 @@ Bytes = Array{UInt8,1}
 mutable struct Db{K,V} <: AbstractDict{K,V}
     ptr :: Ptr{Cvoid}
 
-    function Db{K,V}(null=false) where K where V
+    function Db{K,V}(null=false) where {K,V}
         if (null)
             ptr = C_NULL
         else
@@ -93,15 +93,15 @@ unpack(T::Type{Bytes}, buf::Bytes) = copy(buf)
 
 # Generic collections
 
-isempty(db::Db{K,V}) where K where V = (length(db) == 0)
+isempty(db::Db{K,V}) where {K,V} = (length(db) == 0)
 
-function length(db::Db{K,V}) where K where V
+function length(db::Db{K,V}) where {K,V}
   count = kcdbcount(db.ptr)
   if (count == -1) throw(kcexception(db)) end
   count
 end
 
-function empty!(db::Db{K,V}) where K where V
+function empty!(db::Db{K,V}) where {K,V}
   ok = kcdbclear(db.ptr)
   if (ok == 0) throw(kcexception(db)) end
   db
@@ -112,7 +112,7 @@ end
 TupleOrNothing{K,V} = Union{Tuple{K,V},Nothing}
 
 function Base.iterate(cur::Cursor{K,V},
-                           state::TupleOrNothing{K,V}=nothing)::TupleOrNothing{K,V} where K where V
+                           state::TupleOrNothing{K,V}=nothing)::TupleOrNothing{K,V} where {K,V}
     if state==nothing
         _start!(cur)
     else
@@ -127,36 +127,36 @@ end
 
 # Db methods
 
-function open(db::Db{K,V}, file::String, mode::String) where K where V
+function open(db::Db{K,V}, file::String, mode::String) where {K,V}
   open(db, file, _mode(mode))
 end
 
-function open(f::Function, db::Db{K,V}, file::String, mode::String) where K where V
+function open(f::Function, db::Db{K,V}, file::String, mode::String) where {K,V}
   open(f, db, file, _mode(mode))
 end
 
-function open(db::Db{K,V}, file::String, mode::UInt) where K where V
+function open(db::Db{K,V}, file::String, mode::UInt) where {K,V}
   ok = kcdbopen(db.ptr, file, mode)
   if (ok == 0) throw(kcexception(db)) end
   db
 end
 
-function open(f::Function, db::Db{K,V}, file::String, mode::UInt) where K where V
+function open(f::Function, db::Db{K,V}, file::String, mode::UInt) where {K,V}
   db = open(db, file, mode)
   try
     f(db)
   finally
     close(db)
-    destroy(db)
+    # destroy(db)
   end
 end
 
-function close(db::Db{K,V}) where K where V
+function close(db::Db{K,V}) where {K,V}
   ok = kcdbclose(db.ptr)
   if (ok == 0) throw(kcexception(db)) end
 end
 
-function cas(db::Db{K,V}, key::K, old::V, new::V) where K where V
+function cas(db::Db{K,V}, key::K, old::V, new::V) where {K,V}
   kbuf = pack(key)
   ovbuf = pack(old)
   nvbuf = pack(new)
@@ -171,7 +171,7 @@ end
 # To resolve conflict with V=nothing
 cas(db::Db{K,Nothing}, key::K, old::Nothing, new::Nothing) where K = KCESUCCESS
 
-function cas(db::Db{K,V}, key::K, old::Nothing, new::V) where K where V
+function cas(db::Db{K,V}, key::K, old::Nothing, new::V) where {K,V}
   kbuf = pack(key)
   nvbuf = pack(new)
   ok, code = throw_if(db, 0, KCELOGIC) do
@@ -180,7 +180,7 @@ function cas(db::Db{K,V}, key::K, old::Nothing, new::V) where K where V
   code == KCESUCCESS
 end
 
-function cas(db::Db{K,V}, key::K, old::V, new::Nothing) where K where V
+function cas(db::Db{K,V}, key::K, old::V, new::Nothing) where {K,V}
   kbuf = pack(key)
   ovbuf = pack(old)
   ok, code = throw_if(db, 0, KCELOGIC) do
@@ -190,7 +190,7 @@ function cas(db::Db{K,V}, key::K, old::V, new::Nothing) where K where V
 end
 
 # Dict methods
-function haskey(db::Db{K,V}, k::K) where K where V
+function haskey(db::Db{K,V}, k::K) where {K,V}
   kbuf = pack(k)
   v, code = throw_if(db, -1, KCENOREC) do
     kcdbcheck(db.ptr, pointer(kbuf), length(kbuf))
@@ -198,19 +198,19 @@ function haskey(db::Db{K,V}, k::K) where K where V
   code != KCENOREC
 end
 
-function getkey(db::Db{K,V}, key::K, default::K) where K where V
+function getkey(db::Db{K,V}, key::K, default::K) where {K,V}
   haskey(db, key) ? key : default
 end
 
-function set!(db::Db{K,V}, k::K, v::V) where K where V
+function set!(db::Db{K,V}, k::K, v::V) where {K,V}
   kbuf = pack(k)
   vbuf = pack(v)
   ok = kcdbset(db.ptr, pointer(kbuf), length(kbuf), pointer(vbuf), length(vbuf))
-  if (ok == 0) throw(kcexception(db)) end
+  if (ok == C_NULL) throw(kcexception(db)) end
   v
 end
 
-function bulkset!(db::Db{K,V}, kvs::Dict{K,V}, atomic::Bool) where K where V
+function bulkset!(db::Db{K,V}, kvs::Dict{K,V}, atomic::Bool) where {K,V}
   # make a copy to prevent GC
   recbuf = [(pack(k), pack(v)) for (k, v) in kvs]
   recs = [KCREC(KCSTR(k, length(k)), KCSTR(v, length(v))) for (k, v) in recbuf]
@@ -219,7 +219,7 @@ function bulkset!(db::Db{K,V}, kvs::Dict{K,V}, atomic::Bool) where K where V
   c
 end
 
-function bulkdelete!(db::Db{K,V}, keys::Array, atomic::Bool) where K where V
+function bulkdelete!(db::Db{K,V}, keys::Array, atomic::Bool) where {K,V}
   keybuf = [pack(k) for k in keys]
   ks = [KCSTR(k, length(k)) for k in keybuf]
   c = kcdbremovebulk(db.ptr, ks, length(ks), atomic ? 1 : 0)
@@ -227,7 +227,7 @@ function bulkdelete!(db::Db{K,V}, keys::Array, atomic::Bool) where K where V
   c
 end
 
-function get(db::Db{K,V}, k::K) where K where V
+function get(db::Db{K,V}, k::K) where {K,V}
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv = kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
@@ -235,9 +235,9 @@ function get(db::Db{K,V}, k::K) where K where V
   _unpack(V, pv, int(vsize[1]))
 end
 
-get(db::Db{K,V}, k, default) where K where V = get(()->default, db, k)
+get(db::Db{K,V}, k, default) where {K,V} = get(()->default, db, k)
 
-function get(default::Function, db::Db{K,V}, k::K) where K where V
+function get(default::Function, db::Db{K,V}, k::K) where {K,V}
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
@@ -246,9 +246,9 @@ function get(default::Function, db::Db{K,V}, k::K) where K where V
   code == KCENOREC ? default() : _unpack(V, pv, int(vsize[1]))
 end
 
-get!(db::Db{K,V}, k, default) where K where V = get!(()->default, db, k)
+get!(db::Db{K,V}, k, default) where {K,V} = get!(()->default, db, k)
 
-function get!(default::Function, db::Db{K,V}, k::K) where K where V
+function get!(default::Function, db::Db{K,V}, k::K) where {K,V}
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
@@ -257,14 +257,14 @@ function get!(default::Function, db::Db{K,V}, k::K) where K where V
   code == KCENOREC ? set!(db, k, default()) : _unpack(V, pv, int(vsize[1]))
 end
 
-function delete!(db::Db{K,V}, k::K) where K where V
+function delete!(db::Db{K,V}, k::K) where {K,V}
   kbuf = pack(k)
   ok = kcdbremove(db.ptr, pointer(kbuf), length(kbuf))
   if (ok == 0) throw(kcexception(db)) end
   db
 end
 
-function pop!(db::Db{K,V}, k::K) where K where V
+function pop!(db::Db{K,V}, k::K) where {K,V}
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv = kcdbseize(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
@@ -272,7 +272,7 @@ function pop!(db::Db{K,V}, k::K) where K where V
   _unpack(V, pv, int(vsize[1]))
 end
 
-function pop!(db::Db{K,V}, k::K, default::V) where K where V
+function pop!(db::Db{K,V}, k::K, default::V) where {K,V}
   kbuf = pack(k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
@@ -282,30 +282,30 @@ function pop!(db::Db{K,V}, k::K, default::V) where K where V
 end
 
 # Indexable collection
-getindex(db::Db{K,V}, k) where K where V = get(db, k)
-setindex!(db::Db{K,V}, v, k) where K where V = set!(db, k, v)
+getindex(db::Db{K,V}, k) where {K,V} = get(db, k)
+setindex!(db::Db{K,V}, v, k) where {K,V} = set!(db, k, v)
 
 # Cursor
 
-function _start!(cursor::Cursor{K,V}) where K where V
+function _start!(cursor::Cursor{K,V}) where {K,V}
   f(cursor::Cursor) = kccurjump(cursor.ptr)
   _move!(cursor, f)
 end
 
 # Move to the next record. Return false if there no next record.
-function _next!(cursor::Cursor{K,V}) where K where V
+function _next!(cursor::Cursor{K,V}) where {K,V}
   f(cursor::Cursor) = kccurstep(cursor.ptr)
   _move!(cursor, f)
 end
 
-function _move!(cursor::Cursor{K,V}, f) where K where V
+function _move!(cursor::Cursor{K,V}, f) where {K,V}
   ok, code = throw_if(cursor, 0, KCENOREC) do
     f(cursor)
   end
   code != KCENOREC
 end
 
-function _record(cursor::Cursor{K,V}) where K where V
+function _record(cursor::Cursor{K,V}) where {K,V}
   pkSize = Csize_t[0]
   pvSize = Csize_t[0]
   pv = CString[0]
@@ -319,7 +319,7 @@ function _record(cursor::Cursor{K,V}) where K where V
   res
 end
 
-function path(db::Db{K,V})::String where K where V
+function path(db::Db{K,V})::String where {K,V}
   p = kcdbpath(db.ptr)
   v = unsafe_string(p)
   ok = kcfree(p)
@@ -328,7 +328,7 @@ function path(db::Db{K,V})::String where K where V
 end
 
 # KyotoCabinet exceptions
-function throw_if(f::Function, db::Db{K,V}, result_invalid, ecode_valid) where K where V
+function throw_if(f::Function, db::Db{K,V}, result_invalid, ecode_valid) where {K,V}
   result = f()
   if (result == result_invalid)
     code = kcdbecode(db.ptr)
@@ -342,7 +342,7 @@ function throw_if(f::Function, db::Db{K,V}, result_invalid, ecode_valid) where K
   (result, KCESUCCESS)
 end
 
-function throw_if(f::Function, cursor::Cursor{K,V}, result_invalid, ecode_valid) where K where V
+function throw_if(f::Function, cursor::Cursor{K,V}, result_invalid, ecode_valid) where {K,V}
   result = f()
   if (result == result_invalid)
     code = kccurecode(cursor.ptr)
@@ -356,7 +356,7 @@ function throw_if(f::Function, cursor::Cursor{K,V}, result_invalid, ecode_valid)
   (result, KCESUCCESS)
 end
 
-function kcexception(db::Db{K,V}) where K where V
+function kcexception(db::Db{K,V}) where {K,V}
   @assert db.ptr != C_NULL
 
   code = kcdbecode(db.ptr)
@@ -365,7 +365,7 @@ function kcexception(db::Db{K,V}) where K where V
   KyotoCabinetException(code, message)
 end
 
-function kcexception(cur::Cursor{K,V}) where K where V
+function kcexception(cur::Cursor{K,V}) where {K,V}
   @assert cur.ptr != C_NULL
 
   code = kccurecode(cur.ptr)
