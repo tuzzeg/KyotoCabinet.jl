@@ -84,12 +84,12 @@ struct KyotoCabinetException <: Exception
 end
 
 # Pack value into byte array (Array{Uint8,1})
-pack(v::Bytes) = v
+pack(v::Bytes)::Bytes  = v
 
 # Unpack byte array (Array{Uint8,1}) into value of type T.
 # buf is not GCed and will be freed right after unpack
 # use copy() to own
-unpack(T::Type{Bytes}, buf::Bytes) = copy(buf)
+unpack(buf::Bytes)::Bytes = copy(buf)
 
 # Generic collections
 
@@ -141,7 +141,7 @@ function open(db::Db{K,V}, file::String, mode::UInt) where {K,V}
   db
 end
 
-function open(f::Function, db::Db{K,V}, file::String, mode::UInt) where {K,V}
+function open(f::Function, db::Db{K,V}, file::String, mode::Int) where {K,V}
   db = open(db, file, mode)
   try
     f(db)
@@ -232,7 +232,7 @@ function get(db::Db{K,V}, k::K) where {K,V}
   vsize = Csize_t[0]
   pv = kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
   if (pv == C_NULL) throw(kcexception(db)) end
-  _unpack(V, pv, int(vsize[1]))
+  _unpack(V, pv, convert(Int, vsize[1]))
 end
 
 get(db::Db{K,V}, k, default) where {K,V} = get(()->default, db, k)
@@ -374,7 +374,7 @@ function kcexception(cur::Cursor{K,V}) where {K,V}
   KyotoCabinetException(code, message)
 end
 
-function _unpack(T, p::Ptr{UInt8}, length, free=true)
+function _unpack(T, p::Ptr{UInt8}, length::Int, free=true)
   v = unpack(T, pointer_to_array(p, length))
   if free
     ok = kcfree(p)
@@ -383,7 +383,7 @@ function _unpack(T, p::Ptr{UInt8}, length, free=true)
   v
 end
 
-_modes = Dict(
+_modes = Dict{String,UInt}(
   "r" => KCOREADER,
   "w" => KCOWRITER,
   "w+" => KCOWRITER | KCOCREATE

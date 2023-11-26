@@ -3,8 +3,8 @@ using Test
 using KyotoCabinet
 using KyotoCabinet.c
 
-KyotoCabinet.pack(v::Cstring) = convert(Array{UInt8,1}, v)
-KyotoCabinet.unpack(T::Type{Cstring}, buf::Array{UInt8,1}) = bytestring(buf)
+KyotoCabinet.pack(v::String) = v # convert(Array{UInt8,1}, v)
+KyotoCabinet.unpack(buf::Cstring)::String = unsafe_string(buf)
 
 # TODO: add exception type to @test_throws
 # See: https://github.com/JuliaLang/julia/commit/6fa50c4183358047c772a508e7a1a44a47c94a95
@@ -18,10 +18,10 @@ KyotoCabinet.unpack(T::Type{Cstring}, buf::Array{UInt8,1}) = bytestring(buf)
 # - Read non existing keys
 # - Set value when opened in R/O mode
 
-function empty_db(db::Db{Cstring,Cstring})
+function empty_db(db::Db{String,String})
 end
 
-function abc_db(db::Db{Cstring,Cstring})
+function abc_db(db::Db{String,String})
   set!(db, "a", "1")
   set!(db, "b", "2")
   set!(db, "c", "3")
@@ -29,7 +29,7 @@ end
 
 function test_with(check::Function, configure::Function)
   file = tempname() * ".kch"
-  open(Db{Cstring, Cstring}(), file, KCOWRITER | KCOCREATE) do db
+  open(Db{String, String}(), file, KCOWRITER | KCOCREATE) do db
     configure(db)
     check(db)
   end
@@ -43,9 +43,9 @@ end
 
 @testset "open database abc, check existence" begin
   test_with(abc_db) do db
-    @test "1" == get(db, "a")
-    @test "2" == get(db, "b")
-    @test "3" == get(db, "c")
+    @test "1" == get(db, "a")::String
+    @test "2" == get(db, "b")::String
+    @test "3" == get(db, "c")::String
   end
 end
 
@@ -345,7 +345,7 @@ end
 end
 
 @testset "set_get_long_string" begin
-  open(Db{Cstring, Bytes}(), tempname() * ".kch", KCOWRITER | KCOCREATE) do db
+  open(Db{String, Bytes}(), tempname() * ".kch", KCOWRITER | KCOCREATE) do db
     bytes = "08 03 22 96 01" * repeat(" 61", 150)
     s = map(s->parseint(UInt8, s, 16), split(bytes, " "))
 
