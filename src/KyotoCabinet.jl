@@ -435,6 +435,7 @@ end
 
 function _unpack(t::Type{T}, p::Ptr{UInt8}, length::Int, free=true) where T
     bs::Bytes = unsafe_wrap(Bytes, p, length, own=false)
+    println("U:", bs, "::", t)
     v = unpack(t, bs::Bytes)
     if free
         kcfree(p)
