@@ -235,7 +235,7 @@ function get(db::Db{K,V}, k::K) where K where V
   _unpack(V, pv, int(vsize[1]))
 end
 
-get(db::Db, k, default) = get(()->default, db, k)
+get(db::Db{K,V}, k, default) where K where V = get(()->default, db, k)
 
 function get(default::Function, db::Db{K,V}, k::K) where K where V
   kbuf = pack(k)
@@ -246,7 +246,7 @@ function get(default::Function, db::Db{K,V}, k::K) where K where V
   code == KCENOREC ? default() : _unpack(V, pv, int(vsize[1]))
 end
 
-get!(db::Db, k, default) = get!(()->default, db, k)
+get!(db::Db{K,V}, k, default) where K where V = get!(()->default, db, k)
 
 function get!(default::Function, db::Db{K,V}, k::K) where K where V
   kbuf = pack(k)
@@ -319,7 +319,7 @@ function _record(cursor::Cursor{K,V}) where K where V
   res
 end
 
-function path(db::Db)
+function path(db::Db{K,V}) where K where V
   p = kcdbpath(db.ptr)
   v = bytestring(p)
   ok = kcfree(p)
