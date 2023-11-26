@@ -190,7 +190,7 @@ end
 
 @testset "get_set_failures" begin
   test_with(abc_db) do db
-    @test_throws get(db, "z")
+    @test_throws KyotoCabinetException  get(db, "z")
   end
 end
 
@@ -254,7 +254,7 @@ end
 
     @test "0" == pop!(db, "z", "0")
 
-    @test_throws pop!(db, "z")
+    @test_throws KyotoCabinetException pop!(db, "z")
   end
 end
 
@@ -262,7 +262,7 @@ end
   test_with(abc_db) do db
     @test "1" == db["a"]
     @test "2" == db["b"]
-    @test_throws db["z"]
+    @test_throws KyotoCabinetException db["z"]
 
     @test "0" == (db["z"] = "0")
     @test "0" == db["z"]
@@ -271,13 +271,13 @@ end
 
 # Generic Associative methods should work with Db as well
 @testset "associative_merge" begin
-  test_with(empty_db) do db
-    @test !haskey(db, "a")
-    @test !haskey(db, "b")
-    merge!(db, ["a"=>"a1", "b"=>"b1"])
-    @test "a1" == db["a"]
-    @test "b1" == db["b"]
-  end
+    test_with(empty_db) do db
+        @test !haskey(db, "a")
+        @test !haskey(db, "b")
+        merge!(db, ["a"=>"a1", "b"=>"b1"])
+        @test "a1" == db["a"]
+        @test "b1" == db["b"]
+    end
 end
 
 @testset "path" begin

@@ -15,7 +15,7 @@ import Base: isempty, empty!, length
 import Base: getindex, setindex!
 
 # Dict
-import Base: AbstractDict, haskey, getkey, get, get!, delete!, pop!
+import Base: AbstractDict, haskey, getkey, get, get!, delete!, pop!, merge!
 
 using .c
 
@@ -24,7 +24,7 @@ export
   Bytes, Db, KyotoCabinetException,
 
   # Db methods
-  get, set!, path, cas, bulkset!, bulkdelete!,
+  get, set!, path, cas, bulkset!, bulkdelete!, merge!,
   pack, unpack
 
 Bytes = Array{UInt8,1}
@@ -234,7 +234,7 @@ function set!(db::Db{K,V}, k::K, v::V) where {K,V}
   v
 end
 
-function bulkset!(db::Db{K,V}, kvs::Dict{K,V}, atomic::Bool) where {K,V}
+function bulkset!(db::Db{K,V}, kvs::AbstractDict{K,V}, atomic::Bool) where {K,V}
   # make a copy to prevent GC
   recbuf = [(pack(k), pack(v)) for (k, v) in kvs]
   recs = [KCREC(KCSTR(k, length(k)), KCSTR(v, length(v))) for (k, v) in recbuf]
@@ -249,6 +249,22 @@ function bulkdelete!(db::Db{K,V}, keys::Array, atomic::Bool) where {K,V}
   c = kcdbremovebulk(db.ptr, ks, length(ks), atomic ? 1 : 0)
   if (c == -1) throw(kcexception(db)) end
   c
+end
+
+function merge!(db::Db{K,V}, kvs::AbstractDict{K,V}) where {K,V}
+    bulkset!(db, kvs, atomic=true)
+    db
+end
+
+function merge!(db::Db{K,V}, kvs::AbstractArray{Pair{K,V}}, atomic=false) where {K,V}
+    # recbuf = [(pack(k), pack(v)) for (k, v) in kvs]
+    # recs = [KCREC(KCSTR(k, length(k)), KCSTR(v, length(v))) for (k, v) in recbuf]
+    # c = kcdbsetbulk(db.ptr, recs, length(recs), atomic ? 1 : 0)
+    # if (c == -1) throw(kcexception(db)) end
+    for (k,v) in kvs
+        set!(db, k, v)
+    end
+    db
 end
 
 function get(db::Db{K,V}, k::K)::V where {K,V}
@@ -267,7 +283,7 @@ function get(default::Function, db::Db{K,V}, k::K) where {K,V}
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
   end
-  code == KCENOREC ? default() : _unpack(V, pv, int(vsize[1]))
+  code == KCENOREC ? default() : _unpack(pv, convert(Int, vsize[1]))
 end
 
 get!(db::Db{K,V}, k, default) where {K,V} = get!(()->default, db, k)
@@ -278,7 +294,7 @@ function get!(default::Function, db::Db{K,V}, k::K) where {K,V}
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
   end
-  code == KCENOREC ? set!(db, k, default()) : _unpack(V, pv, int(vsize[1]))
+  code == KCENOREC ? set!(db, k, default()) : _unpack(pv, convert(Int, vsize[1]))
 end
 
 function delete!(db::Db{K,V}, k::K) where {K,V}
@@ -302,7 +318,7 @@ function pop!(db::Db{K,V}, k::K, default::V) where {K,V}
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbseize(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
   end
-  code == KCENOREC ? default : _unpack(V, pv, int(vsize[1]))
+  code == KCENOREC ? default : _unpack(pv, convert(Int, vsize[1]))
 end
 
 # Indexable collection
@@ -344,19 +360,20 @@ function _record(cursor::Cursor{K,V})::TupleOrNothing{K,V} where {K,V}
     val = _unpack(vk, convert(Int, pvSize[1]), false)::V
     # println(key, "-", val)
     res = (key, val)
-    ok1 = kcfree(pk)
-    # ok2 = kcfree(vk)
-    if (ok1 == 0) throw(kcexception(cursor)) end
+    kcfree(pk)
+    # ok = kcfree(pk)
+    # if (ok == 0) throw(kcexception(cursor)) end
 
     res
 end
 
 function path(db::Db{K,V})::String where {K,V}
-  p = kcdbpath(db.ptr)
-  v = unsafe_string(p)
-  ok = kcfree(p)
-  if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
-  v
+    p = kcdbpath(db.ptr)
+    v = unsafe_string(p)
+    kcfree(p)
+    # ok = kcfree(p)
+    # if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
+    v
 end
 
 # KyotoCabinet exceptions
@@ -410,8 +427,9 @@ function _unpack(p::Ptr{UInt8}, length::Int, free=true)
     bs::Bytes = unsafe_wrap(Bytes, p, length, own=false)
     v = unpack(bs::Bytes)
     if free
-        ok = kcfree(p)
-        if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
+        kcfree(p)
+        # ok = kcfree(p)
+        # if (ok == 0) throw(KyotoCabinetException(KCESYSTEM, "Can not free memory")) end
     end
     v
 end

@@ -30,13 +30,19 @@ using Base.Libc
 KCDBPtr = Ptr{Cvoid}
 KCCURPtr = Ptr{Cvoid}
 
+Bytes = Array{UInt8,1}
+
 struct KCSTR
-    buf::Cstring
+    buf::Bytes
     size::Csize_t
 
-    KCSTR(buf::Cstring, size::Csize_t) = new(buf, size)
-    KCSTR(buf, size) = new(convert(Cstring, buf), convert(Csize_t, size))
-    KCSTR(buf::Cstring) = new(convert(Cstring, buf), convert(Csize_t, length(buf)))
+    #KCSTR(buf::Cstring, size::Csize_t) = new(buf, size)
+    #KCSTR(buf, size) = new(convert(Cstring, buf), convert(Csize_t, size))
+    #KCSTR(buf::Cstring) = new(convert(Cstring, buf), convert(Csize_t, length(buf)))
+
+    KCSTR(buf::Bytes, size::Csize_t) = new(buf, size)
+    KCSTR(buf, size) = new(convert(Bytes, buf), convert(Csize_t, size))
+    KCSTR(buf::Bytes) = new(convert(Bytes, buf), convert(Csize_t, length(buf)))
     # finalizer(self) do bufdef
     #     if bufdef.buf == C_NULL
     #         bufdef.size = 0
@@ -78,7 +84,15 @@ const KCOTRYLOCK  = convert(UInt, 1 << 7) # lock without blocking
 const KCONOREPAIR = convert(UInt, 1 << 8) # open without auto repair
 
 # Release a region allocated in the library.
-kcfree(ptr) = ccall((:kcfree, libkyotocabinet), Cvoid, (Ptr{Cvoid},), ptr)
+function kcfree(ptr::Ptr{UInt8})::Nothing
+    ccall((:kcfree, libkyotocabinet), Cvoid, (Ptr{Cvoid},), ptr)
+    nothing
+end
+
+function kcfree(ptr::Cstring)::Nothing
+    ccall((:kcfree, libkyotocabinet), Cvoid, (Cstring,), ptr)
+    nothing
+end
 
 # Create a polymorphic database object.
 kcdbnew() = ccall((:kcdbnew, libkyotocabinet), KCDBPtr, ())
@@ -121,7 +135,7 @@ function kcdbget(db::KCDBPtr, kbuf, ksize::Int, vsizePtr::Ptr{Csize_t})::Ptr{UIn
 end
 
 # Check the existence of a record.
-function kcdbcheck(db::KCDBPtr, kbuf::Int, ksize::Int)
+function kcdbcheck(db::KCDBPtr, kbuf::Ptr{UInt8}, ksize::Int)
   ccall((:kcdbcheck, libkyotocabinet), Cint, (KCDBPtr, Cstring, Csize_t),
     db, kbuf, ksize)
 end
@@ -143,8 +157,8 @@ function kcdbremove(db::KCDBPtr, kbuf, ksize::Int)
 end
 
 # Retrieve the value of a record and remove it atomically.
-function kcdbseize(db::KCDBPtr, kbuf, ksize::Int, vsize::Int)
-  ccall((:kcdbseize, libkyotocabinet), Cstring, (KCDBPtr, Cstring, Cuint, Ptr{Cuint}),
+function kcdbseize(db::KCDBPtr, kbuf, ksize::Int, vsize::Ptr{Csize_t})
+  ccall((:kcdbseize, libkyotocabinet), Ptr{UInt8}, (KCDBPtr, Cstring, Cuint, Ptr{Csize_t}),
     db, kbuf, ksize, vsize)
 end
 
