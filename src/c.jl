@@ -1,6 +1,6 @@
 module c
 
-# include("../deps/deps.jl")
+include("../deps/deps.jl")
 
 export
   # Types
@@ -31,17 +31,26 @@ KCDBPtr = Ptr{Cvoid}
 KCCURPtr = Ptr{Cvoid}
 
 struct KCSTR
-  buf::Cstring
-  size::Csize_t
+    buf::Cstring
+    size::Csize_t
 
-  KCSTR(buf::Cstring, size::Csize_t) = malloc(buf, size)
-  KCSTR(buf, size) = malloc(convert(Cstring, buf), convert(Csize_t, size))
-  KCSTR(buf::Cstring) = malloc(convert(Cstring, buf), convert(Csize_t, length(buf)))
+    KCSTR(buf::Cstring, size::Csize_t) = new(buf, size)
+    KCSTR(buf, size) = new(convert(Cstring, buf), convert(Csize_t, size))
+    KCSTR(buf::Cstring) = new(convert(Cstring, buf), convert(Csize_t, length(buf)))
+    # finalizer(self) do bufdef
+    #     if bufdef.buf == C_NULL
+    #         bufdef.size = 0
+    #         return
+    #     end
+    #     free(bufdef.buf)
+    #     bufdef.buf = C_NULL
+    #     bufdef.size = 0
+    # end
 end
 
 struct KCREC
-  key::KCSTR
-  value::KCSTR
+    key::KCSTR
+    value::KCSTR
 end
 
 # Error codes
