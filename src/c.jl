@@ -98,34 +98,34 @@ end
 kcdbnew() = ccall((:kcdbnew, libkyotocabinet), KCDBPtr, ())
 
 # Destroy a database object.
-function kcdbdel(db::KCDBPtr)
+function kcdbdel(db::KCDBPtr)::Nothing
   ccall((:kcdbdel, libkyotocabinet), Cvoid, (KCDBPtr,), db)
 end
 
 # Open a database file.
-function kcdbopen(db::KCDBPtr, path::AbstractString, mode::UInt)
-  ccall((:kcdbopen, libkyotocabinet), Cint, (KCDBPtr, Cstring, Cuint), db, path, mode)
+function kcdbopen(db::KCDBPtr, path::AbstractString, mode::UInt)::Bool
+    ccall((:kcdbopen, libkyotocabinet), Cint, (KCDBPtr, Cstring, Cuint), db, path, mode)
 end
 
 # Close the database file.
-function kcdbclose(db::KCDBPtr)
-  ccall((:kcdbclose, libkyotocabinet), Cint, (KCDBPtr,), db)
+function kcdbclose(db::KCDBPtr)::Bool
+    ccall((:kcdbclose, libkyotocabinet), Cint, (KCDBPtr,), db)
 end
 
 # Get the code of the last happened error.
-function kcdbecode(db::KCDBPtr)
-  ccall((:kcdbecode, libkyotocabinet), Cint, (KCDBPtr,), db)
+function kcdbecode(db::KCDBPtr)::Int32
+    ccall((:kcdbecode, libkyotocabinet), Cint, (KCDBPtr,), db)
 end
 
 # Get the supplement message of the last happened error.
-function kcdbemsg(db::KCDBPtr)
-  ccall((:kcdbemsg, libkyotocabinet), Cstring, (KCDBPtr,), db)
+function kcdbemsg(db::KCDBPtr)::Cstring
+    ccall((:kcdbemsg, libkyotocabinet), Cstring, (KCDBPtr,), db)
 end
 
 # Set the value of a record.
-function kcdbset(db::KCDBPtr, kbuf, ksize::Int, vbuf, vsize::Int)
-  ccall((:kcdbset, libkyotocabinet), Cint, (KCDBPtr, Cstring, Cuint, Cstring, Cuint),
-    db, kbuf, ksize, vbuf, vsize)
+function kcdbset(db::KCDBPtr, kbuf::Ptr{UInt8}, ksize::Int, vbuf::Ptr{UInt8}, vsize::Int)::Bool
+    ccall((:kcdbset, libkyotocabinet), Cint, (KCDBPtr, Cstring, Cuint, Cstring, Cuint),
+          db, kbuf, ksize, vbuf, vsize)
 end
 
 # Retrieve the value of a record.
@@ -135,50 +135,51 @@ function kcdbget(db::KCDBPtr, kbuf, ksize::Int, vsizePtr::Ptr{Csize_t})::Ptr{UIn
 end
 
 # Check the existence of a record.
-function kcdbcheck(db::KCDBPtr, kbuf::Ptr{UInt8}, ksize::Int)
+function kcdbcheck(db::KCDBPtr, kbuf::Ptr{UInt8}, ksize::Int)::Int32
   ccall((:kcdbcheck, libkyotocabinet), Cint, (KCDBPtr, Cstring, Csize_t),
     db, kbuf, ksize)
 end
 
 # Get the number of records.
-function kcdbcount(db::KCDBPtr)
+function kcdbcount(db::KCDBPtr)::Int64
   ccall((:kcdbcount, libkyotocabinet), Clonglong, (KCDBPtr,), db)
 end
 
 # Remove all records.
-function kcdbclear(db::KCDBPtr)
+function kcdbclear(db::KCDBPtr)::Bool
   ccall((:kcdbclear, libkyotocabinet), Cint, (KCDBPtr,), db)
 end
 
 # Remove a record.
-function kcdbremove(db::KCDBPtr, kbuf, ksize::Int)
+function kcdbremove(db::KCDBPtr, kbuf, ksize::Int)::Bool
   ccall((:kcdbremove, libkyotocabinet), Cint, (KCDBPtr, Cstring, Csize_t),
     db, kbuf, ksize)
 end
 
 # Retrieve the value of a record and remove it atomically.
-function kcdbseize(db::KCDBPtr, kbuf, ksize::Int, vsize::Ptr{Csize_t})
+function kcdbseize(db::KCDBPtr, kbuf, ksize::Int, vsize::Ptr{Csize_t})::Ptr{UInt8}
   ccall((:kcdbseize, libkyotocabinet), Ptr{UInt8}, (KCDBPtr, Cstring, Cuint, Ptr{Csize_t}),
     db, kbuf, ksize, vsize)
 end
 
 # Get the path of the database file.
-function kcdbpath(db::KCDBPtr)
+function kcdbpath(db::KCDBPtr)::Cstring
   ccall((:kcdbpath, libkyotocabinet), Cstring, (KCDBPtr,), db)
 end
 
 # Perform compare-and-swap.
-function kcdbcas(db::KCDBPtr, kbuf, ksize::Int, ovbuf, ovsize::Int, nvbuf, nvsize::Int)
-  ccall((:kcdbcas, libkyotocabinet), Cint,
-    (KCDBPtr, Cstring, Csize_t, Cstring, Csize_t, Cstring, Csize_t),
-    db, kbuf, ksize, ovbuf, ovsize, nvbuf, nvsize)
+function kcdbcas(db::KCDBPtr, kbuf, ksize::Int, ovbuf, ovsize::Int,
+                 nvbuf, nvsize::Int)::Bool
+    i = ccall((:kcdbcas, libkyotocabinet), Cint,
+              (KCDBPtr, Cstring, Csize_t, Cstring, Csize_t, Cstring, Csize_t),
+              db, kbuf, ksize, ovbuf, ovsize, nvbuf, nvsize)
 end
 
 # Store records at once.
-function kcdbsetbulk(db::KCDBPtr, recs, rnum::Int, atomic::Int)
+function kcdbsetbulk(db::KCDBPtr, recs, rnum::Int, atomic::Int)::Int64
   ccall((:kcdbsetbulk, libkyotocabinet), Int64,
-    (KCDBPtr, Ptr{KCREC}, Csize_t, Cint),
-    db, convert(Ptr{KCREC}, pointer(recs)), rnum, atomic)
+    (KCDBPtr, Ptr{UInt}, Csize_t, Cint),
+    db, recs, rnum, atomic)
 end
 
 # Remove records at once.
