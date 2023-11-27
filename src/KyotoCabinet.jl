@@ -9,7 +9,7 @@ import Base: open, close
 import Base
 
 # Generic collections
-import Base: isempty, empty!, length
+import Base: isempty, empty!, length, convert
 
 # Indexed collections
 import Base: getindex, setindex!
@@ -24,8 +24,7 @@ export
   Bytes, Db, KyotoCabinetException,
 
   # Db methods
-  get, set!, path, cas, bulkset!, bulkdelete!, merge!,
-  pack, unpack
+  get, set!, path, cas, bulkset!, bulkdelete!, merge!
 
 Bytes = Array{UInt8,1}
 
@@ -83,13 +82,17 @@ struct KyotoCabinetException <: Exception
   message :: String
 end
 
-# Pack value into byte array (Array{Uint8,1})
-pack(v::Bytes)::Bytes  = v
-
-# Unpack byte array (Array{Uint8,1}) into value of type T.
+# pack/Unpack byte array (Array{Uint8,1}) into value of type T.
 # buf is not GCed and will be freed right after unpack
 # use copy() to own
-unpack(t::Type{Bytes}, buf::Bytes)::Bytes = copy(buf)
+
+Base.convert(t::Type{Bytes}, v::String)::Bytes = Bytes(v)
+Base.convert(t::Type{String}, buf::Bytes)::String = String(buf)
+
+function Base.convert(t::Type{Any}, buf::Bytes)::Bytes
+    return buf
+end
+# Base.convert(t::Type{Bytes}, buf::Bytes)::Bytes = buf
 
 # Generic collections
 
@@ -181,9 +184,9 @@ function close(db::Db{K,V}) where {K,V}
 end
 
 function cas(db::Db{K,V}, key::K, old::V, new::V) where {K,V}
-  kbuf = pack(key)
-  ovbuf = pack(old)
-  nvbuf = pack(new)
+  kbuf = convert(Bytes, key)
+  ovbuf = convert(Bytes, old)
+  nvbuf = convert(Bytes, new)
   ok, code = throw_if(db, 0, KCELOGIC) do
     kcdbcas(db.ptr, pointer(kbuf),
             length(kbuf), pointer(ovbuf),
@@ -196,8 +199,8 @@ end
 cas(db::Db{K,Nothing}, key::K, old::Nothing, new::Nothing) where K = KCESUCCESS
 
 function cas(db::Db{K,V}, key::K, old::Nothing, new::V) where {K,V}
-  kbuf = pack(key)
-  nvbuf = pack(new)
+  kbuf = convert(Bytes, key)
+  nvbuf = convert(Bytes, new)
   ok, code = throw_if(db, 0, KCELOGIC) do
     kcdbcas(db.ptr, pointer(kbuf), length(kbuf), C_NULL, 0, pointer(nvbuf), length(nvbuf))
   end
@@ -205,8 +208,8 @@ function cas(db::Db{K,V}, key::K, old::Nothing, new::V) where {K,V}
 end
 
 function cas(db::Db{K,V}, key::K, old::V, new::Nothing) where {K,V}
-  kbuf = pack(key)
-  ovbuf = pack(old)
+  kbuf = convert(Bytes, key)
+  ovbuf = convert(Bytes, old)
   ok, code = throw_if(db, 0, KCELOGIC) do
     kcdbcas(db.ptr, pointer(kbuf), length(kbuf), pointer(ovbuf), length(ovbuf), C_NULL, 0)
   end
@@ -215,7 +218,7 @@ end
 
 # Dict methods
 function haskey(db::Db{K,V}, k::K) where {K,V}
-  kbuf = pack(k)
+  kbuf = convert(Bytes, k)
   v, code = throw_if(db, -1, KCENOREC) do
     kcdbcheck(db.ptr, pointer(kbuf), length(kbuf))
   end
@@ -227,8 +230,8 @@ function getkey(db::Db{K,V}, key::K, default::K) where {K,V}
 end
 
 function set!(db::Db{K,V}, k::K, v::V) where {K,V}
-  kbuf = pack(k)
-  vbuf = pack(v)
+  kbuf = convert(Bytes, k)
+  vbuf = convert(Bytes, v)
   ok = kcdbset(db.ptr, pointer(kbuf), length(kbuf), pointer(vbuf), length(vbuf))
   if (ok == C_NULL) throw(kcexception(db)) end
   v
@@ -236,7 +239,7 @@ end
 
 function bulkset!(db::Db{K,V}, kvs::AbstractDict{K,V}, atomic::Bool) where {K,V}
   # make a copy to prevent GC
-  recbuf = [(pack(k), pack(v)) for (k, v) in kvs]
+  recbuf = [(convert(Bytes, k), convert(Bytes, v)) for (k, v) in kvs]
   recs = [KCREC(KCSTR(k, length(k)), KCSTR(v, length(v))) for (k, v) in recbuf]
   c = kcdbsetbulk(db.ptr, recs, length(recs), atomic ? 1 : 0)
   if (c == -1) throw(kcexception(db)) end
@@ -245,7 +248,7 @@ end
 
 function bulkset!(db::Db{K,V}, kvs::AbstractArray{Pair{K,V}}, atomic::Bool) where {K,V}
   # make a copy to prevent GC
-  recbuf = [(pack(k), pack(v)) for (k, v) in kvs]
+  recbuf = [(convert(Bytes, k), convert(Bytes, v)) for (k, v) in kvs]
   recs = [KCREC(KCSTR(k, length(k)), KCSTR(v, length(v))) for (k, v) in recbuf]
   c = kcdbsetbulk(db.ptr, recs, length(recs), atomic ? 1 : 0)
   if (c == -1) throw(kcexception(db)) end
@@ -253,7 +256,7 @@ function bulkset!(db::Db{K,V}, kvs::AbstractArray{Pair{K,V}}, atomic::Bool) wher
 end
 
 function bulkdelete!(db::Db{K,V}, keys::Array, atomic::Bool) where {K,V}
-  keybuf = [pack(k) for k in keys]
+  keybuf = [convert(Bytes, k) for k in keys]
   ks = [KCSTR(k, length(k)) for k in keybuf]
   c = kcdbremovebulk(db.ptr, ks, length(ks), atomic ? 1 : 0)
   if (c == -1) throw(kcexception(db)) end
@@ -266,7 +269,7 @@ function merge!(db::Db{K,V}, kvs::AbstractDict{K,V}) where {K,V}
 end
 
 function merge!(db::Db{K,V}, kvs::AbstractArray{Pair{K,V}}, atomic=false) where {K,V}
-    # recbuf = [(pack(k), pack(v)) for (k, v) in kvs]
+    # recbuf = [(convert(Bytes, k), convert(Bytes, v)) for (k, v) in kvs]
     # recs = [KCREC(KCSTR(k, length(k)), KCSTR(v, length(v))) for (k, v) in recbuf]
     # c = kcdbsetbulk(db.ptr, recs, length(recs), atomic ? 1 : 0)
     # if (c == -1) throw(kcexception(db)) end
@@ -277,7 +280,7 @@ function merge!(db::Db{K,V}, kvs::AbstractArray{Pair{K,V}}, atomic=false) where 
 end
 
 function get(db::Db{K,V}, k::K)::V where {K,V}
-    kbuf = pack(k)
+    kbuf = convert(Bytes, k)
     vsize = Csize_t[0]
     pv = kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
     if (pv == C_NULL) throw(kcexception(db)) end
@@ -288,7 +291,7 @@ end
 get(db::Db{K,V}, k, default) where {K,V} = get(()->default, db, k)
 
 function get(default::Function, db::Db{K,V}, k::K)::V where {K,V}
-  kbuf = pack(k)
+  kbuf = convert(Bytes, k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
@@ -299,7 +302,7 @@ end
 get!(db::Db{K,V}, k, default) where {K,V} = get!(()->default, db, k)
 
 function get!(default::Function, db::Db{K,V}, k::K)::V where {K,V}
-  kbuf = pack(k)
+  kbuf = convert(Bytes, k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbget(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
@@ -308,14 +311,14 @@ function get!(default::Function, db::Db{K,V}, k::K)::V where {K,V}
 end
 
 function delete!(db::Db{K,V}, k::K) where {K,V}
-  kbuf = pack(k)
+  kbuf = convert(Bytes, k)
   ok = kcdbremove(db.ptr, pointer(kbuf), length(kbuf))
   if (ok == 0) throw(kcexception(db)) end
   db
 end
 
 function pop!(db::Db{K,V}, k::K) where {K,V}
-  kbuf = pack(k)
+  kbuf = convert(Bytes, k)
   vsize = Csize_t[0]
   pv = kcdbseize(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
   if (pv == C_NULL) throw(kcexception(db)) end
@@ -323,7 +326,7 @@ function pop!(db::Db{K,V}, k::K) where {K,V}
 end
 
 function pop!(db::Db{K,V}, k::K, default::V)::V where {K,V}
-  kbuf = pack(k)
+  kbuf = convert(Bytes, k)
   vsize = Csize_t[0]
   pv, code = throw_if(db, C_NULL, KCENOREC) do
     kcdbseize(db.ptr, pointer(kbuf), length(kbuf), pointer(vsize))
@@ -435,8 +438,8 @@ end
 
 function _unpack(t::Type{T}, p::Ptr{UInt8}, length::Int, free=true) where T
     bs::Bytes = unsafe_wrap(Bytes, p, length, own=false)
-    # println("U:", bs, "::", t)
-    v = unpack(t, bs::Bytes)
+    # println("RAW UNPACK:", bs, " as ", t)
+    v = convert(t, copy(bs))
     if free
         kcfree(p)
         # ok = kcfree(p)

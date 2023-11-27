@@ -1,6 +1,6 @@
 using Test
 
-import Base: ==
+import Base: ==, convert
 
 using KyotoCabinet
 
@@ -16,29 +16,26 @@ end
 ==(x::Key, y::Key) = x.x == y.x
 ==(x::Val, y::Val) = (x.a == y.a) && (x.b == y.b)
 
-KyotoCabinet.pack(v::String)::Bytes = Bytes(v)
-KyotoCabinet.unpack(String, buf::Bytes) = String(buf)
-
-function KyotoCabinet.pack(k::Key)::Bytes
+function Base.convert(t::Type{Bytes}, k::Key)::Bytes
   io = IOBuffer()
   write(io, convert(Int32, k.x))
   take!(io)
 end
 
-function KyotoCabinet.unpack(k::Type{Key}, buf::Bytes)::Key
+function Base.convert(k::Type{Key}, buf::Bytes)::Key
   io = IOBuffer(buf)
   x = read(io, Int32)
   Key(convert(Int, x))
 end
 
-function KyotoCabinet.pack(v::Val)::Bytes
+function Base.convert(t::Type{Bytes},v::Val)::Bytes
   io = IOBuffer()
   write(io, convert(Int32, v.a))
   write(io, v.b)
   take!(io)
 end
 
-function KyotoCabinet.unpack(v::Type{Val}, buf::Bytes)::Val
+function Base.convert(v::Type{Val}, buf::Bytes)::Val
   io = IOBuffer(buf)
   a = read(io, Int32)
   b = read(io, String)

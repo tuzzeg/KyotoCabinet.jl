@@ -3,11 +3,9 @@ using Test
 using KyotoCabinet
 using KyotoCabinet.c
 
-KyotoCabinet.pack(v::String)::Bytes = Bytes(v) # convert(Array{UInt8,1}, v)
-KyotoCabinet.unpack(t::Type{String}, buf::Bytes)::String = String(buf)
+import Base: convert
 
-# TODO: add exception type to @test_throws
-# See: https://github.com/JuliaLang/julia/commit/6fa50c4183358047c772a508e7a1a44a47c94a95
+BIG_DATA_LENGTH = 100
 
 # TODO
 # File creation failures.
@@ -345,12 +343,34 @@ end
 # end
 
 @testset "set_get_long_string" begin
-  open(Db{String, Bytes}(), tempname() * ".kch", KCOWRITER | KCOCREATE) do db
-    bytes = "08 03 22 96 01" * repeat(" 61", 150)
-    s = map(s->parse(UInt8, s, base=16), split(bytes, " "))
+    open(Db{String, String}(), tempname() * ".kch", KCOWRITER | KCOCREATE) do db
+        s = "Hello " * repeat(" world ", BIG_DATA_LENGTH)
 
-    db["1"] = s
+        # println(s,"::", typeof(s))
 
-    @test s == db["1"]::Bytes
-  end
+        db["1"] = s
+
+        s1 = db["1"]
+        # println(s1,"::", typeof(s1))
+
+        @test s == s1
+    end
+end
+
+@testset "set_get_long_bytes_vector" begin
+    open(Db{String, Bytes}(), tempname() * ".kch", KCOWRITER | KCOCREATE) do db
+        # bytes = "08 03 22 96 01" * repeat(" 61", 150)
+        bytes = "99 99 99 99 99 99" * repeat(" 61", BIG_DATA_LENGTH) * " 88 88 88 88 88 88"
+        s = map(s->parse(UInt8, s, base=16), split(bytes, " "))
+
+        # println(s,"::", typeof(s))
+
+        db["1"] = s
+
+        s1 = db["1"]
+        # println(s1,"::", typeof(s1))
+
+        println(repeat("-", 80))
+        @test s == s1
+    end
 end

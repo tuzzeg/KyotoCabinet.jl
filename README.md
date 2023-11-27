@@ -35,6 +35,9 @@ end
 `Db` object implements basic collections and `Dict` methods.
 
 ```julia
+
+import Base
+
 open(Db{String,String}(), "db.kch", "w+") do db
   # Basic getindex, setindex! methods
   db["a"] = "1"
@@ -62,7 +65,10 @@ end
 
 ## Serialization/Deserialization
 [KyotoCabinet](http://fallabs.com/kyotocabinet) treats keys and values as byte arrays.
-To make it work with arbitrary types, one needs to define pack/unpack methods.
+To make it work with arbitrary types, one needs to define
+```Base.convert(t::Type{<your type>}, v::Bytes)::<your type> ``` and
+```Base.convert(t::Type{Bytes>}, v::<your type>)::Bytes ```
+methods.
 
 ```julia
 struct Key
