@@ -38,6 +38,8 @@ end
 
 import Base
 
+# String<->KyotoCabinet.Bytes conversion implemented in the library
+
 open(Db{String,String}(), "db.kch", "w+") do db
   # Basic getindex, setindex! methods
   db["a"] = "1"
@@ -80,26 +82,26 @@ struct Val
   b::String
 end
 
-function KyotoCabinet.pack(k::Key)::Bytes
+function Base.convert(t::Type{Bytes}, k::Key)::Bytes
   io = IOBuffer()
   write(io, convert(Int32, k.x))
   take!(io)
 end
 
-function KyotoCabinet.unpack(k::Type{Key}, buf::Bytes)::Key
+function Base.convert(k::Type{Key}, buf::Bytes)::Key
   io = IOBuffer(buf)
   x = read(io, Int32)
   Key(convert(Int, x))
 end
 
-function KyotoCabinet.pack(v::Val)::Bytes
+function Base.convert(t::Type{Bytes},v::Val)::Bytes
   io = IOBuffer()
   write(io, convert(Int32, v.a))
   write(io, v.b)
   take!(io)
 end
 
-function KyotoCabinet.unpack(v::Type{Val}, buf::Bytes)::Val
+function Base.convert(v::Type{Val}, buf::Bytes)::Val
   io = IOBuffer(buf)
   a = read(io, Int32)
   b = read(io, String)
@@ -145,6 +147,8 @@ cas(db, "k", (), "new")    # add record, only if "k" not in db
 ### Bulk operations
 
 ```julia
+# TODO: Does'nt work now
+
 # Updates records in one operation, atomically if needed.
 bulkset!(db, ["a" => "1", "b" => "2"], true)
 
