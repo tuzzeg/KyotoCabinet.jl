@@ -35,6 +35,11 @@ end
 `Db` object implements basic collections and `Dict` methods.
 
 ```julia
+
+import Base
+
+# String<->KyotoCabinet.Bytes conversion implemented in the library
+
 open(Db{String,String}(), "db.kch", "w+") do db
   # Basic getindex, setindex! methods
   db["a"] = "1"
@@ -52,64 +57,67 @@ end
 Support iteration over records, keys and values:
 
 ```julia
-for (k, v) = db
+for (k, v) in db
   println("k=$k v=$v")
 end
-for k = keys(db)
+for k in keys(db)
   println("k=$k")
 end
 ```
 
 ## Serialization/Deserialization
 [KyotoCabinet](http://fallabs.com/kyotocabinet) treats keys and values as byte arrays.
-To make it work with arbitrary types, one needs to define pack/unpack methods.
+To make it work with arbitrary types, one needs to define
+```Base.convert(t::Type{<your type>}, v::Bytes)::<your type> ``` and
+```Base.convert(t::Type{Bytes>}, v::<your type>)::Bytes ```
+methods.
 
 ```julia
-immutable K
+struct Key
   x::Int
 end
 
-immutable V
+struct Val
   a::Int
   b::String
 end
 
-function KyotoCabinet.pack(k::K)
+function Base.convert(t::Type{Bytes}, k::Key)::Bytes
   io = IOBuffer()
-  write(io, int32(k.x))
-  takebuf_array(io)
-end
-function KyotoCabinet.unpack(T::Type{K}, buf::Array{Uint8,1})
-  io = IOBuffer(buf)
-  x = read(io, Int32)
-  K(int(x))
+  write(io, convert(Int32, k.x))
+  take!(io)
 end
 
-function KyotoCabinet.pack(v::V)
-  io = IOBuffer()
-  write(io, int32(v.a))
-  write(io, int32(length(v.b)))
-  write(io, v.b)
-  takebuf_array(io)
+function Base.convert(k::Type{Key}, buf::Bytes)::Key
+  io = IOBuffer(buf)
+  x = read(io, Int32)
+  Key(convert(Int, x))
 end
-function KyotoCabinet.unpack(T::Type{V}, buf::Array{Uint8,1})
+
+function Base.convert(t::Type{Bytes},v::Val)::Bytes
+  io = IOBuffer()
+  write(io, convert(Int32, v.a))
+  write(io, v.b)
+  take!(io)
+end
+
+function Base.convert(v::Type{Val}, buf::Bytes)::Val
   io = IOBuffer(buf)
   a = read(io, Int32)
-  l = read(io, Int32)
-  b = bytestring(read(io, Uint8, l))
-  V(int(a), b)
+  b = read(io, String)
+  Val(a,b)
 end
 ```
 
 After that these types can be used as keys/values:
 
 ```julia
-open(Db{K, V}(), "db.kch", "w+") do db
-  db[K(1)] = V(1, "a")
-  db[K(1999999999)] = V(2, repeat("b",100))
+open(Db{Key, Val}(), "db.kch", "w+") do db
+  db[Key(1)] = Val(1, "a")
+  db[Key(1999999999)] = Val(2, repeat("b",100))
 end
 
-k = K(1)
+k = Key(1)
 println(db[k])
 ```
 
@@ -139,9 +147,13 @@ cas(db, "k", (), "new")    # add record, only if "k" not in db
 ### Bulk operations
 
 ```julia
+# TODO: Does'nt work now
+
 # Updates records in one operation, atomically if needed.
 bulkset!(db, ["a" => "1", "b" => "2"], true)
 
 # Removes records in one operation, atomically if needed.
 bulkdelete!(db, ["a", "b"], true)
 ```
+
+[![Build Status](https://github.com/eugeneai/KyotoCabinet.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/eugeneai/KyotoCabinet.jl/actions/workflows/CI.yml?query=branch%3Amaster)

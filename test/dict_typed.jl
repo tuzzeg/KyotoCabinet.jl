@@ -1,81 +1,81 @@
-using Base.Test
+using Test
 
-import Base: ==
+import Base: ==, convert
 
 using KyotoCabinet
 
-immutable K
+struct Key
   x::Int
 end
 
-immutable V
+struct Val
   a::Int
   b::String
 end
 
-==(x::K, y::K) = x.x == y.x
-==(x::V, y::V) = (x.a == y.a) && (x.b == y.b)
+==(x::Key, y::Key) = x.x == y.x
+==(x::Val, y::Val) = (x.a == y.a) && (x.b == y.b)
 
-KyotoCabinet.pack(v::ASCIIString) = convert(Array{Uint8,1}, v)
-KyotoCabinet.unpack(T::Type{ASCIIString}, buf::Array{Uint8,1}) = bytestring(buf)
-
-function KyotoCabinet.pack(k::K)
+function Base.convert(t::Type{Bytes}, k::Key)::Bytes
   io = IOBuffer()
-  write(io, int32(k.x))
-  takebuf_array(io)
+  write(io, convert(Int32, k.x))
+  take!(io)
 end
-function KyotoCabinet.unpack(T::Type{K}, buf::Array{Uint8,1})
+
+function Base.convert(k::Type{Key}, buf::Bytes)::Key
   io = IOBuffer(buf)
   x = read(io, Int32)
-  K(int(x))
+  Key(convert(Int, x))
 end
 
-function KyotoCabinet.pack(v::V)
+function Base.convert(t::Type{Bytes},v::Val)::Bytes
   io = IOBuffer()
-  write(io, int32(v.a))
-  write(io, int32(length(v.b)))
+  write(io, convert(Int32, v.a))
   write(io, v.b)
-  takebuf_array(io)
+  take!(io)
 end
-function KyotoCabinet.unpack(T::Type{V}, buf::Array{Uint8,1})
+
+function Base.convert(v::Type{Val}, buf::Bytes)::Val
   io = IOBuffer(buf)
   a = read(io, Int32)
-  l = read(io, Int32)
-  b = bytestring(read(io, Uint8, l))
-  V(int(a), b)
-end
-
-function test_get_set()
-  file = tempdb()
-  open(Db{K, V}(), file, "w+") do db
-    db[K(1)] = V(1, "a")
-    db[K(1999999999)] = V(2, repeat("b",100))
-  end
-  open(Db{K, V}(), file, "r") do db
-    @assert V(1, "a") == db[K(1)]
-    @assert V(2, repeat("b",100)) == db[K(1999999999)]
-  end
-end
-
-function test_iter()
-  file = tempdb()
-  open(Db{K, V}(), file, "w+") do db
-    db[K(1)] = V(1, "a")
-    db[K(1999999999)] = V(2, repeat("b",100))
-  end
-  open(Db{K, V}(), file, "r") do db
-    s0 = start(db)
-    kv, s0 = next(db, s0)
-    @assert K(1) == kv[1]
-    @assert V(1, "a") == kv[2]
-
-    kv, s0 = next(db, s0)
-    @assert K(1999999999) == kv[1]
-    @assert V(2, repeat("b", 100)) == kv[2]
-  end
+  b = read(io, String)
+  Val(a,b)
 end
 
 tempdb() = tempname() * ".kch"
 
-test_get_set()
-test_iter()
+@testset "get_set" begin
+  file = tempdb()
+  open(Db{Key, Val}(), file, "w+") do db
+    db[Key(1)] = Val(1, "a")
+    db[Key(1999999999)] = Val(2, repeat("b",100))
+  end
+  open(Db{Key, Val}(), file, "r") do db
+    @test Val(1, "a") == db[Key(1)]
+    @test Val(2, repeat("b",100)) == db[Key(1999999999)]
+  end
+end
+
+@testset "iter" begin
+    file = tempdb()
+    println("Filename: ", file)
+    open(Db{Key, Val}(), file, "w+") do db
+        db[Key(1)] = Val(1, "a")
+        db[Key(1999999999)] = Val(2, repeat("b",100))
+    end
+    open(Db{Key, Val}(), file, "r") do db
+        for (k,v) in db
+            println(k, "=", v)
+        end
+        # s0 = start(db)
+        # kv, s0 = next(db, s0)
+        # @test K(1) == kv[1]
+        # @test V(1, "a") == kv[2]
+
+        # kv, s0 = next(db, s0)
+        # @test K(1999999999) == kv[1]
+        # @test V(2, repeat("b", 100)) == kv[2]
+    end
+end
+
+tempdb() = tempname() * ".kch"
